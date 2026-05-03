@@ -2,6 +2,7 @@ import argparse
 import json
 import logging
 import os
+import sys
 from typing import Any
 
 import yaml
@@ -14,8 +15,17 @@ from miles.utils.environ import enable_experimental_rollout_refactor
 from miles.utils.eval_config import EvalDatasetConfig, build_eval_dataset_configs, ensure_dataset_list
 from miles.utils.logging_utils import configure_logger
 from miles.utils.misc import load_function
+from miles.utils.yaml_config import apply_yaml_to_parser
 
 logger = logging.getLogger(__name__)
+
+
+def _pre_parse_config_path() -> str | None:
+    """Extract ``--config`` from sys.argv without consuming other arguments."""
+    pre = argparse.ArgumentParser(add_help=False)
+    pre.add_argument("--config", type=str, default=None)
+    known, _ = pre.parse_known_args()
+    return known.config
 
 
 def reset_arg(parser, name, **kwargs):
@@ -153,7 +163,7 @@ def get_miles_extra_args_provider(add_custom_arguments=None):
             parser.add_argument(
                 "--megatron-to-hf-mode",
                 choices=["raw", "bridge"],
-                default="raw",
+                default="bridge",
                 help="The method to convert megatron weights to hugging face weights for SGLang.",
             )
             parser.add_argument(
@@ -393,6 +403,76 @@ def get_miles_extra_args_provider(add_custom_arguments=None):
                     "The function should take list[list[Sample]] and return list[list[Sample]]."
                 ),
             )
+            # Agent timeout / iteration parameters
+            parser.add_argument(
+                "--agent-max-iterations",
+                type=int,
+                default=None,
+                help="Max agent iterations per task. Overridden by sample metadata if present.",
+            )
+            parser.add_argument(
+                "--agent-task-timeout",
+                type=int,
+                default=None,
+                help="Task-level timeout in seconds. Overridden by sample metadata if present.",
+            )
+            parser.add_argument(
+                "--agent-step-timeout",
+                type=int,
+                default=None,
+                help="Per-step timeout in seconds. Overridden by sample metadata if present.",
+            )
+            parser.add_argument(
+                "--agent-eval-timeout",
+                type=int,
+                default=None,
+                help="Evaluation timeout in seconds. Overridden by sample metadata if present.",
+            )
+            parser.add_argument(
+                "--agent-env-timeout",
+                type=int,
+                default=None,
+                help="Environment timeout in seconds. Overridden by sample metadata if present.",
+            )
+            parser.add_argument(
+                "--agent-create-timeout",
+                type=int,
+                default=None,
+                help="Environment creation timeout in seconds. Overridden by sample metadata if present.",
+            )
+            parser.add_argument(
+                "--agent-runner",
+                type=str,
+                default=None,
+                help="Runner for the agent. Overridden by sample metadata if present.",
+            )
+            parser.add_argument(
+                "--agent-runner-entrypoint",
+                type=str,
+                default=None,
+                help="Runner entrypoint for the agent. Overridden by sample metadata if present.",
+            )
+            parser.add_argument(
+                "--agent-no-use-fn-calling",
+                action="store_false",
+                dest="agent_use_fn_calling",
+                default=True,
+                help="Disable function calling in the agent.",
+            )
+            parser.add_argument(
+                "--agent-truncation-penalty",
+                type=float,
+                default=0.0,
+                help="Reward penalty added when exit_status is max_length or max_iterations. "
+                     "E.g. -0.5 to penalize truncated trajectories.",
+            )
+            parser.add_argument(
+                "--agent-filter-overlong",
+                type=lambda x: x.lower() in ("true", "1", "yes"),
+                default=True,
+                help="Whether to filter (mask loss of) max_length/max_iterations samples. "
+                     "Default: true. Set to false to keep truncated samples for training.",
+            )
             # update weight
             parser.add_argument(
                 "--update-weight-buffer-size",
@@ -463,6 +543,57 @@ def get_miles_extra_args_provider(add_custom_arguments=None):
                 type=float,
                 default=0,
                 help="Initial grace period (in seconds) before starting health checks. This allows time for model compilation and initialization. Increase this value significantly when using deepgemm.",
+            )
+            return parser
+
+        def add_node_health_monitor_arguments(parser):
+            parser.add_argument(
+                "--enable-node-health-monitor",
+                action="store_true",
+                default=True,
+                help="Enable per-node health monitoring. Logs disk, GPU, CPU, process metrics to shared filesystem.",
+            )
+            parser.add_argument(
+                "--disable-node-health-monitor",
+                action="store_false",
+                dest="enable_node_health_monitor",
+                help="Disable per-node health monitoring.",
+            )
+            parser.add_argument(
+                "--node-health-monitor-interval",
+                type=float,
+                default=30.0,
+                help="Interval in seconds between health metric samples per node.",
+            )
+            parser.add_argument(
+                "--node-health-monitor-log-dir",
+                type=str,
+                default=None,
+                help="Directory for node health logs. Auto-derived from --save or experiment name if not set.",
+            )
+            parser.add_argument(
+                "--node-health-alert-tmp-disk-pct",
+                type=float,
+                default=80.0,
+                help="Alert threshold for /tmp disk usage percentage.",
+            )
+            parser.add_argument(
+                "--node-health-alert-disk-pct",
+                type=float,
+                default=90.0,
+                help="Alert threshold for general disk usage percentage.",
+            )
+            parser.add_argument(
+                "--node-health-alert-gpu-mem-pct",
+                type=float,
+                default=95.0,
+                help="Alert threshold for GPU memory usage percentage.",
+            )
+            parser.add_argument(
+                "--node-health-alert-cpu-mem-pct",
+                type=float,
+                default=95.0,
+                help="Alert threshold for CPU memory usage percentage.",
             )
             return parser
 
@@ -787,6 +918,7 @@ def get_miles_extra_args_provider(add_custom_arguments=None):
                     "reinforce_plus_plus_baseline",
                     "ppo",
                     "on_policy_distillation",
+                    "rft",
                 ],
                 default="grpo",
             )
@@ -853,6 +985,25 @@ def get_miles_extra_args_provider(add_custom_arguments=None):
                 help="Whether to calculate the mismatch metrics.",
             )
             parser.add_argument(
+                "--monitor-logprob-diff",
+                action="store_true",
+                default=False,
+                help=(
+                    "Monitor logprob difference between SGLang (rollout) and Megatron (training). "
+                    "TITO: forces extra Megatron forward pass. "
+                    "Non-TITO: captures SGLang logprobs post-hoc via /generate."
+                ),
+            )
+            parser.add_argument(
+                "--save-logprob-comparison-data",
+                type=str,
+                default=None,
+                help=(
+                    "Save per-token token/logprob comparison data for post-hoc visualization. "
+                    "The path is formatted with `save_logprob_comparison_data.format(rollout_id=..., rank=...)`."
+                ),
+            )
+            parser.add_argument(
                 "--reset-optimizer-states",
                 action="store_true",
                 default=False,
@@ -913,6 +1064,12 @@ def get_miles_extra_args_provider(add_custom_arguments=None):
                 action="store_true",
                 default=False,
                 help="The rollout routing replay technique from https://arxiv.org/abs/2510.11370",
+            )
+            parser.add_argument(
+                "--tito",
+                action="store_true",
+                default=False,
+                help="Enable TITO proxy for exact token/logprob capture during SWE-agent rollout.",
             )
             parser.add_argument(
                 "--use-opsm",
@@ -983,6 +1140,7 @@ def get_miles_extra_args_provider(add_custom_arguments=None):
             parser.add_argument("--wandb-host", type=str, default=None)
             parser.add_argument("--wandb-team", type=str, default=None)
             parser.add_argument("--wandb-group", type=str, default=None)
+            parser.add_argument("--wandb-experiment-name", type=str, default=None)
             reset_arg(parser, "--wandb-project", type=str, default=None)
             parser.add_argument(
                 "--disable-wandb-random-suffix",
@@ -1379,6 +1537,7 @@ def get_miles_extra_args_provider(add_custom_arguments=None):
         parser = add_train_arguments(parser)
         parser = add_rollout_arguments(parser)
         parser = add_fault_tolerance_arguments(parser)
+        parser = add_node_health_monitor_arguments(parser)
         parser = add_data_arguments(parser)
         parser = add_eval_arguments(parser)
         parser = add_algo_arguments(parser)
@@ -1405,15 +1564,85 @@ def get_miles_extra_args_provider(add_custom_arguments=None):
         )
         reset_arg(parser, "--padded-vocab-size", type=int, default=None)
 
+        # --config: load a YAML experiment config.  Values become defaults
+        # so that explicit CLI flags still take precedence.
+        reset_arg(
+            parser,
+            "--config",
+            type=str,
+            default=None,
+            help=(
+                "Path to a YAML experiment config file. "
+                "Keys map to argparse argument names (underscored). "
+                "CLI arguments override YAML values."
+            ),
+        )
+
+        # Apply YAML config if provided (must happen after all args are
+        # registered so that set_defaults / required-relaxation works).
+        config_path = _pre_parse_config_path()
+        if config_path is not None:
+            apply_yaml_to_parser(parser, config_path)
+
         parser.set_defaults(sglang_tensor_parallel_size=add_sglang_tp_size())
         return parser
 
     return add_miles_arguments
 
 
+def _inject_yaml_config():
+    """Load --custom-config-path YAML and inject values into sys.argv before argparse validation.
+
+    This runs before the main argparse call so that YAML values can satisfy required arguments
+    like --rollout-batch-size. CLI args take precedence over YAML values.
+    """
+    pre_parser = argparse.ArgumentParser(add_help=False)
+    pre_parser.add_argument("--custom-config-path", type=str, default=None)
+    pre_args, _ = pre_parser.parse_known_args()
+
+    if not pre_args.custom_config_path:
+        return
+
+    with open(pre_args.custom_config_path) as f:
+        data = yaml.safe_load(f) or {}
+
+    # Collect flags already present in sys.argv so CLI takes precedence
+    existing_flags = set()
+    for arg in sys.argv[1:]:
+        if arg.startswith("--"):
+            existing_flags.add(arg.split("=")[0])
+
+    extra_args = []
+    for key, value in data.items():
+        flag = f"--{key.replace('_', '-')}"
+        if flag in existing_flags:
+            continue
+
+        if isinstance(value, bool):
+            if value:
+                extra_args.append(flag)
+        elif isinstance(value, list):
+            extra_args.append(flag)
+            extra_args.extend(str(v) for v in value)
+        elif value is not None:
+            extra_args.append(flag)
+            str_value = str(value)
+            # Strip spaces from list-pattern strings (e.g. "[1, 1, 0]" -> "[1,1,0]")
+            # to satisfy Megatron's _eval_pattern regex which disallows spaces.
+            if isinstance(value, str) and '[' in value:
+                str_value = str_value.replace(' ', '')
+            extra_args.append(str_value)
+
+    if extra_args:
+        logger.info(f"Injected {len(extra_args)} args from YAML config: {pre_args.custom_config_path}")
+    sys.argv.extend(extra_args)
+
+
 def parse_args(add_custom_arguments=None):
     # Users may call `parse_args` very early, thus we ensure logger is configured here
     configure_logger()
+
+    _inject_yaml_config()
 
     add_miles_arguments = get_miles_extra_args_provider(add_custom_arguments)
 
@@ -1447,11 +1676,12 @@ def parse_args(add_custom_arguments=None):
 
         # always use varlen
         args.variable_seq_lengths = True
-        if getattr(args, "moe_token_dispatcher_type", None) == "allgather":
-            logger.info(
-                "--moe-token-dispatcher-type allgather does not support variable sequence length, "
-                "please use alltoall dispatcher instead."
-            )
+        if getattr(args, "moe_token_dispatcher_type", None) != "alltoall":
+            if getattr(args, "moe_token_dispatcher_type", None) == "allgather":
+                logger.info(
+                    "--moe-token-dispatcher-type allgather does not support variable sequence length, "
+                    "please use alltoall dispatcher instead."
+                )
             args.moe_token_dispatcher_type = "alltoall"
 
     sglang_validate_args(args)
@@ -1463,7 +1693,7 @@ def parse_args_train_backend():
     if os.environ.get("MILES_BACKEND") is not None:
         raise Exception("`MILES_BACKEND` is deprecated, please use --train-backend directly.")
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(add_help=False)
     get_miles_extra_args_provider()(parser)
     args_partial, _ = parser.parse_known_args()
     return args_partial.train_backend
@@ -1525,11 +1755,12 @@ def miles_validate_args(args):
                 "please make sure it is a valid megatron checkpoint directory."
             )
 
-    # TODO: During loading, we need to set the start_rollout_id here.
     if args.megatron_to_hf_mode == "bridge":
         if args.load is None:
             args.load = args.ref_load or args.hf_checkpoint
-        args.start_rollout_id = 0
+            args.start_rollout_id = 0
+        elif not os.path.exists(os.path.join(args.load, "latest_checkpointed_iteration.txt")):
+            args.start_rollout_id = 0
     else:
         if (
             args.load is None
@@ -1558,6 +1789,9 @@ def miles_validate_args(args):
             "require advantage normalization. Please add `--normalize-advantages` to your command."
         )
 
+    # if args.tito and not (args.use_routing_replay and not args.use_rollout_routing_replay):
+    #     args.use_rollout_logprobs = True
+
     if args.use_rollout_logprobs:
         assert not args.use_tis, "use_rollout_logprobs and use_tis cannot be set at the same time."
 
@@ -1569,6 +1803,16 @@ def miles_validate_args(args):
         if args.use_rollout_logprobs:
             logger.info(
                 "get_mismatch_metrics is set; For metrics calculation, the log probs will still be recomputed by training engine. One more forward pass will be applied."
+            )
+
+    if args.monitor_logprob_diff:
+        if args.tito:
+            logger.info(
+                "monitor_logprob_diff with TITO: Megatron forward pass will be forced for logprob comparison."
+            )
+        else:
+            logger.info(
+                "monitor_logprob_diff without TITO: SGLang logprobs will be captured post-hoc via /generate."
             )
 
     if args.use_dynamic_batch_size:
@@ -1585,6 +1829,8 @@ def miles_validate_args(args):
     if args.dump_details is not None:
         args.save_debug_rollout_data = f"{args.dump_details}/rollout_data/{{rollout_id}}.pt"
         args.save_debug_train_data = f"{args.dump_details}/train_data/{{rollout_id}}_{{rank}}.pt"
+        if args.save_logprob_comparison_data is None:
+            args.save_logprob_comparison_data = f"{args.dump_details}/logprob_compare/{{rollout_id}}_{{rank}}.pt"
 
     if args.load_debug_rollout_data is not None:
         logger.info(
@@ -1660,6 +1906,13 @@ def miles_validate_args(args):
     if args.n_samples_per_prompt == 1:
         args.grpo_std_normalization = False
         logger.info("n_samples_per_prompt is set to 1, grpo_std_normalization will be set to False.")
+
+    if getattr(args, "agent_truncation_penalty", 0.0) and getattr(args, "agent_filter_overlong", True):
+        assert False, (
+            "agent_truncation_penalty is set but agent_filter_overlong is True. "
+            "Truncated samples will be masked out and the penalty will have no effect. "
+            "Use --agent-no-filter-overlong to disable overlong filtering."
+        )
 
     if args.over_sampling_batch_size is None:
         args.over_sampling_batch_size = args.rollout_batch_size
@@ -1743,7 +1996,7 @@ def hf_validate_args(args, hf_config):
         ("rms_norm_eps", "norm_epsilon", equal),
         ("rope_theta", "rotary_base", equal),
     ]:
-        if hasattr(hf_config, hf_config_name):
+        if hasattr(hf_config, hf_config_name) and hasattr(args, megatron_config_name):
             if not compare_fn(getattr(hf_config, hf_config_name), getattr(args, megatron_config_name)):
                 errors.append(
                     f"{hf_config_name} in hf config {getattr(hf_config, hf_config_name)} is not equal to "

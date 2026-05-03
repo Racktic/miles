@@ -1,0 +1,23 @@
+# GLM-4-9B
+model:
+  spec: '"miles_plugins.models.glm4" "get_glm_spec"'
+  swiglu: true
+  num_layers: 40
+  hidden_size: 4096
+  ffn_hidden_size: 13696
+  num_attention_heads: 32
+  group_query_attention: true
+  num_query_groups: 2
+  use_rotary_position_embeddings: true
+  disable_bias_linear: true
+  add_qkv_bias: true
+  normalization: RMSNorm
+  norm_epsilon: 1e-5
+  rotary_base: 10000
+  vocab_size: 151552
+  post_self_attn_layernorm: true
+  post_mlp_layernorm: true
+  rotary_interleaved: true
+  rotary_percent: 0.5
+  no_rope_fusion: true
+  untie_embeddings_and_output_weights: true

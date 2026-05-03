@@ -282,14 +282,14 @@ class MegatronTrainRayActor(TrainRayActor):
             )
 
     def train(self, rollout_id: int, rollout_data_ref: Box) -> None:
+        if self.args.debug_rollout_only:
+            return  # Skip entirely — data already saved by RolloutManager
+
         if self.args.offload_train:
             self.wake_up()
 
         with timer("data_preprocess"):
             rollout_data = get_rollout_data(self.args, rollout_data_ref, self.parallel_state)
-            if self.args.debug_rollout_only:
-                log_rollout_data(rollout_id, self.args, rollout_data, self.parallel_state)
-                return
 
         if self.role == "critic":
             return self.train_critic(rollout_id, rollout_data)
@@ -327,6 +327,11 @@ class MegatronTrainRayActor(TrainRayActor):
         )
 
     def train_actor(self, rollout_id: int, rollout_data: RolloutBatch) -> None:
+        """
+        Note(Junli): 1. rollout_data is assumed as a mini-batch. It should be splitted into mini-batches outside.
+                     2. should call `torch.cuda.empty_cache()` after log_probs computation and fwdbwd.
+                     TODO: call `torch.cuda.empty_cache()` between micro_batches
+        """
         # Create data iterator for log_probs and train.
         data_iterator, num_microbatches = get_data_iterator(self.args, self.model, self.parallel_state, rollout_data)
 
@@ -335,10 +340,12 @@ class MegatronTrainRayActor(TrainRayActor):
 
         with inverse_timer("train_wait"), timer("train"):
             if self.args.compute_advantages_and_returns:
+                # step 0: ref log_probs
                 if "ref" in self.weights_backuper.backup_tags:
                     if self.args.use_routing_replay:
                         os.environ["ROUTING_REPLAY_STAGE"] = "fallthrough"
                     self._switch_model("ref")
+                    print_memory("before ref_log_probs")
                     rollout_data.update(
                         self.compute_log_prob(
                             data_iterator,
@@ -346,13 +353,18 @@ class MegatronTrainRayActor(TrainRayActor):
                             store_prefix="ref_",
                         )
                     )
+                    print_memory("after ref_log_probs")
+                    clear_memory()
+
+                # step 1: pi_old log_probs
                 self._switch_model("old_actor" if self.args.keep_old_actor else "actor")
-                if not self.args.use_rollout_logprobs or self.args.get_mismatch_metrics:
+                if not self.args.use_rollout_logprobs or self.args.get_mismatch_metrics or self.args.monitor_logprob_diff:
                     if self.args.use_routing_replay:
                         if self.args.use_rollout_routing_replay:
                             os.environ["ROUTING_REPLAY_STAGE"] = "replay_forward"
                         else:
                             os.environ["ROUTING_REPLAY_STAGE"] = "record"
+                    print_memory("before actor_log_probs")
                     rollout_data.update(
                         self.compute_log_prob(
                             data_iterator,
@@ -360,30 +372,45 @@ class MegatronTrainRayActor(TrainRayActor):
                             store_prefix="",
                         )
                     )
+                    print_memory("after actor_log_probs")
                     if self.args.use_rollout_routing_replay:
                         RoutingReplay.clear_all_forward()
+                    clear_memory()
 
                 if self.args.use_critic:
+                    print_memory("before sync_actor_critic_data")
                     sync_actor_critic_data(
                         self.args,
                         rollout_data,
                         self._actor_critic_groups,
                     )
+                    print_memory("after sync_actor_critic_data")
                 if self._active_model_tag != "actor":
                     self._switch_model("actor")
 
                 # Calculate adv and returns. Need to performed before training (instead of on the fly),
                 # because we may need normalize the whole rollout.
+                print_memory("before compute_advantages_and_returns")
                 compute_advantages_and_returns(self.args, self.parallel_state, rollout_data)
+                print_memory("after compute_advantages_and_returns")
 
             if self.rollout_data_postprocess is not None:
                 self.rollout_data_postprocess(self.args)
 
             log_rollout_data(rollout_id, self.args, rollout_data, self.parallel_state)
+            train_dump_utils.save_logprob_comparison_data(
+                self.args,
+                rollout_id=rollout_id,
+                rollout_data=rollout_data,
+                parallel_state=self.parallel_state,
+                tokenizer=self.tokenizer,
+            )
 
+            # step 2: train (fwdbwd)
             # Train
             if self.args.use_routing_replay:
                 os.environ["ROUTING_REPLAY_STAGE"] = "replay_backward"
+            print_memory("before actor_train")
             with timer("actor_train"):
                 train(
                     rollout_id,
@@ -394,6 +421,8 @@ class MegatronTrainRayActor(TrainRayActor):
                     num_microbatches,
                     self.parallel_state,
                 )
+            print_memory("after actor_train")
+            clear_memory()
 
             self.prof.step(rollout_id=rollout_id)
 

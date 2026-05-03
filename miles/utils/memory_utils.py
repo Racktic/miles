@@ -1,6 +1,7 @@
 import gc
 import logging
 
+import psutil
 import torch
 import torch.distributed as dist
 
@@ -28,6 +29,16 @@ def available_memory():
     }
 
 
+def available_cpu_memory():
+    vm = psutil.virtual_memory()
+    return {
+        "total_GB": _byte_to_gb(vm.total),
+        "available_GB": _byte_to_gb(vm.available),
+        "used_GB": _byte_to_gb(vm.used),
+        "percent": vm.percent,
+    }
+
+
 def _byte_to_gb(n: int):
     return round(n / (1024**3), 2)
 
@@ -36,9 +47,10 @@ def print_memory(msg, clear_before_print: bool = False):
     if clear_before_print:
         clear_memory()
 
-    memory_info = available_memory()
+    gpu_info = available_memory()
+    cpu_info = available_cpu_memory()
     # Need to print for all ranks, b/c different rank can have different behaviors
     logger.info(
-        f"[Rank {dist.get_rank()}] Memory-Usage {msg}{' (cleared before print)' if clear_before_print else ''}: {memory_info}"
+        f"[Rank {dist.get_rank()}] Memory-Usage {msg}{' (cleared before print)' if clear_before_print else ''}: GPU={gpu_info} CPU={cpu_info}"
     )
-    return memory_info
+    return gpu_info

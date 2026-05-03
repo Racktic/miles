@@ -1,0 +1,6 @@
+# Qwen3-4B-Instruct-2507 (same as Qwen3-4B but with rotary_base=5000000)
+_includes:
+  - qwen3-4B.yaml
+
+model:
+  rotary_base: 5000000

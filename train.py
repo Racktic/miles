@@ -1,3 +1,7 @@
+import logging
+import os
+from pathlib import Path
+
 import ray
 
 from miles.ray.placement_group import create_placement_groups, create_rollout_manager, create_training_models
@@ -6,9 +10,54 @@ from miles.utils.logging_utils import configure_logger
 from miles.utils.misc import should_run_periodic_action
 from miles.utils.tracking_utils import init_tracking
 
+logger = logging.getLogger(__name__)
+
+
+def _get_monitoring_log_dir(args) -> str:
+    """Derive the monitoring log directory from args."""
+    if getattr(args, "node_health_monitor_log_dir", None):
+        return args.node_health_monitor_log_dir
+    if getattr(args, "save", None):
+        return str(Path(args.save).parent / "monitoring")
+    exp_name = (
+        getattr(args, "wandb_experiment_name", None)
+        or getattr(args, "wandb_group", None)
+        or "default"
+    )
+    slurm_job_id = os.environ.get("SLURM_JOB_ID", "local")
+    return str(
+        Path("./logs")
+        / exp_name
+        / slurm_job_id
+        / "monitoring"
+    )
+
 
 def train(args):
     configure_logger()
+
+    # Start per-node health monitoring before anything else
+    node_monitor = None
+    if getattr(args, "enable_node_health_monitor", True):
+        try:
+            from miles.utils.node_health_monitor import ClusterHealthMonitor
+
+            log_dir = _get_monitoring_log_dir(args)
+            node_monitor = ClusterHealthMonitor(
+                log_dir=log_dir,
+                interval=getattr(args, "node_health_monitor_interval", 30.0),
+                alert_thresholds={
+                    "tmp_disk_percent": getattr(args, "node_health_alert_tmp_disk_pct", 80.0),
+                    "disk_percent": getattr(args, "node_health_alert_disk_pct", 90.0),
+                    "gpu_mem_percent": getattr(args, "node_health_alert_gpu_mem_pct", 95.0),
+                    "cpu_mem_percent": getattr(args, "node_health_alert_cpu_mem_pct", 95.0),
+                },
+            )
+            node_monitor.start()
+        except Exception:
+            logger.warning("Failed to start node health monitor", exc_info=True)
+            node_monitor = None
+
     # allocate the GPUs
     pgs = create_placement_groups(args)
     init_tracking(args)
@@ -94,6 +143,13 @@ def train(args):
             ray.get(rollout_manager.eval.remote(rollout_id))
 
     ray.get(rollout_manager.dispose.remote())
+
+    # Stop per-node health monitoring
+    if node_monitor is not None:
+        try:
+            node_monitor.stop()
+        except Exception:
+            logger.warning("Failed to stop node health monitor", exc_info=True)
 
 
 if __name__ == "__main__":

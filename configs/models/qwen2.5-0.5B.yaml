@@ -1,0 +1,16 @@
+# Qwen2.5-0.5B
+model:
+  swiglu: true
+  num_layers: 24
+  hidden_size: 896
+  ffn_hidden_size: 4864
+  num_attention_heads: 14
+  use_rotary_position_embeddings: true
+  disable_bias_linear: true
+  add_qkv_bias: true
+  normalization: RMSNorm
+  norm_epsilon: 1e-6
+  rotary_base: 1000000
+  group_query_attention: true
+  num_query_groups: 2
+  vocab_size: 151936

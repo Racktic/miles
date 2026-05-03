@@ -1,0 +1,3 @@
+# Llama-3.2-3B-Instruct (AMD variant, identical architecture)
+_includes:
+  - llama3.2-3B-Instruct.yaml

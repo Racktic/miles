@@ -20,8 +20,59 @@ from miles.utils.ppo_utils import (
 )
 from miles.utils.types import RolloutBatch
 
-from .cp_utils import all_gather_with_cp, get_logits_and_tokens_offset_with_cp, get_sum_of_sample_mean
+from .cp_utils import all_gather_with_cp, get_logits_and_tokens_offset_with_cp, get_sum_of_sample_mean, slice_log_prob_with_cp
 from .parallel import ParallelState
+
+import json
+import logging
+from pathlib import Path
+
+_loss_logger = logging.getLogger(__name__)
+_logprob_dump_step = 0
+
+
+def _dump_logprob_diff(args, batch, parallel_state):
+    """Save per-sample megatron vs rollout logprobs for offline visualization."""
+    global _logprob_dump_step
+    import torch.distributed as dist
+
+    is_main = (parallel_state.tp_rank == 0
+               and parallel_state.dp_rank == 0
+               and parallel_state.cp_rank == 0
+               and parallel_state.is_pp_last_stage)
+    if not is_main:
+        _logprob_dump_step += 1
+        return
+
+    save_dir = Path(args.save) / "logprob_diff"
+    save_dir.mkdir(parents=True, exist_ok=True)
+
+    samples = []
+    for i in range(len(batch["total_lengths"])):
+        sample = {
+            "total_length": batch["total_lengths"][i],
+            "response_length": batch["response_lengths"][i],
+        }
+        if "unconcat_tokens" in batch:
+            sample["tokens"] = batch["unconcat_tokens"][i].detach().cpu().tolist()
+        if "log_probs" in batch and batch["log_probs"]:
+            sample["megatron_log_probs"] = batch["log_probs"][i].detach().cpu().tolist()
+        if "rollout_log_probs" in batch and batch["rollout_log_probs"]:
+            sample["rollout_log_probs"] = batch["rollout_log_probs"][i].detach().cpu().tolist()
+        if "loss_masks" in batch:
+            sample["loss_mask"] = batch["loss_masks"][i].detach().cpu().tolist()
+        samples.append(sample)
+
+    path = save_dir / f"mb_{_logprob_dump_step:06d}.json"
+    with open(path, "w") as f:
+        json.dump({
+            "step": _logprob_dump_step,
+            "cp_rank": parallel_state.cp_rank,
+            "cp_size": parallel_state.cp_size,
+            "samples": samples,
+        }, f)
+    _loss_logger.info(f"[LOGPROB-DUMP] Saved {len(samples)} samples to {path}")
+    _logprob_dump_step += 1
 
 
 def get_responses(
@@ -120,6 +171,7 @@ def get_log_probs_and_entropy(
     with_entropy: bool = False,
     non_loss_data: bool = True,
     max_seq_lens: list[int] | None = None,
+    entropy_no_grad: bool = False,
 ) -> dict[str, list[torch.Tensor]]:
     """Compute per-token log-probabilities (and optionally entropy) on responses.
 
@@ -144,6 +196,8 @@ def get_log_probs_and_entropy(
         a list of `[R]` tensors.
     """
     assert non_loss_data
+    import torch as _torch
+    _alloc_before = _torch.cuda.memory_allocated() / 1e9
     log_probs_list = []
     entropy_list = []
     for logits_chunk, tokens_chunk in get_responses(
@@ -161,10 +215,15 @@ def get_log_probs_and_entropy(
             parallel_state.tp_group,
             with_entropy=with_entropy,
             chunk_size=args.log_probs_chunk_size,
+            entropy_no_grad=entropy_no_grad,
         )
 
         log_probs_list.append(log_prob.squeeze(-1))
         entropy_list.append(entropy)
+
+    _alloc_after = _torch.cuda.memory_allocated() / 1e9
+    if abs(_alloc_after - _alloc_before) > 0.1:  # only log if >100MB change
+        print(f"[get_log_probs_and_entropy] allocated: {_alloc_before:.2f}GB -> {_alloc_after:.2f}GB (delta={_alloc_after-_alloc_before:+.2f}GB)")
 
     res = {
         "log_probs": log_probs_list,
@@ -331,6 +390,11 @@ def compute_advantages_and_returns(args: Namespace, parallel_state: ParallelStat
         ]
         returns = advantages
 
+    elif args.advantage_estimator == "rft":
+        rewards = torch.tensor(rewards, dtype=torch.float32, device=kl[0].device)
+        returns = get_grpo_returns(rewards, kl)
+        advantages = [r for r in returns]
+
     else:
         raise NotImplementedError(f"advantage_estimator {args.advantage_estimator} is not supported. ")
 
@@ -491,6 +555,7 @@ def policy_loss_function(
         response_lengths=response_lengths,
         with_entropy=True,
         max_seq_lens=max_seq_lens,
+        entropy_no_grad=(args.entropy_coef == 0),
     )
 
     log_probs = log_probs_and_entropy["log_probs"]
@@ -593,8 +658,18 @@ def policy_loss_function(
         custom_pg_loss_reducer_func = load_function(args.custom_pg_loss_reducer_function_path)
         # Determine which loss_masks to use for pg_loss reducer
         pg_loss_masks = modified_response_masks if (args.get_mismatch_metrics or args.use_tis) else batch["loss_masks"]
+        # pg_loss_reducer = custom_pg_loss_reducer_func(
+        #     total_lengths, response_lengths, pg_loss_masks, args.calculate_per_token_loss
+        # )
         pg_loss_reducer = custom_pg_loss_reducer_func(
-            total_lengths, response_lengths, pg_loss_masks, args.calculate_per_token_loss
+            args=args,
+            total_lengths=total_lengths,
+            response_lengths=response_lengths,
+            loss_masks=pg_loss_masks,
+            calculate_per_token_loss=args.calculate_per_token_loss,
+            parallel_state=parallel_state,
+            qkv_format=args.qkv_format,
+            max_seq_lens=max_seq_lens,
         )
     else:
         pg_loss_reducer = sum_of_sample_mean
@@ -609,6 +684,20 @@ def policy_loss_function(
     entropy_loss = sum_of_sample_mean(entropy)
 
     loss = pg_loss - args.entropy_coef * entropy_loss
+
+    # DEBUG: trace non-zero grad_norm when advantages are all 0
+    import torch.distributed as _dist
+    if _dist.get_rank() == 0:
+        _adv_abs = advantages.abs().sum().item()
+        _adv_max = advantages.abs().max().item() if advantages.numel() > 0 else 0
+        print(
+            f"[LOSS_DEBUG] pg_loss={pg_loss.item():.6e} "
+            f"entropy_coef={args.entropy_coef} entropy_loss={entropy_loss.item():.6e} "
+            f"loss_so_far={loss.item():.6e} "
+            f"adv_abs_sum={_adv_abs:.6e} adv_abs_max={_adv_max:.6e} "
+            f"use_kl_loss={args.use_kl_loss} "
+            f"log_probs_numel={log_probs.numel()}"
+        )
 
     if args.use_kl_loss:
         ref_log_probs = batch["ref_log_probs"]
@@ -633,7 +722,41 @@ def policy_loss_function(
     train_rollout_logprob_abs_diff = None
     if "rollout_log_probs" in batch and batch["rollout_log_probs"]:
         rollout_log_probs = torch.cat(batch["rollout_log_probs"], dim=0)
-        train_rollout_logprob_abs_diff = sum_of_sample_mean((old_log_probs - rollout_log_probs).abs())
+
+        # Fix: when use_rollout_logprobs=True, old_log_probs IS rollout_log_probs
+        # (set at the top of this function), so diffing them gives 0.
+        # Always use batch["log_probs"] (megatron) for the comparison when available.
+        if args.monitor_logprob_diff and "log_probs" in batch and batch["log_probs"]:
+            megatron_log_probs = torch.cat(batch["log_probs"], dim=0)
+        else:
+            megatron_log_probs = old_log_probs
+        abs_diff = (megatron_log_probs - rollout_log_probs).abs()
+
+        # Apply loss_mask to exclude wrapper tokens (loss_mask == 0).
+        # TITO stores 0.0 logprobs for wrapper tokens (ChatML prefix/suffix,
+        # non-assistant messages); without masking, diff metrics are inflated
+        # by comparing 0.0 vs Megatron's real logprobs. Matches verl-qwen's
+        # approach of always using response_mask for logprob diff computation.
+        cp_loss_masks = torch.cat([
+            slice_log_prob_with_cp(
+                lm.float(), tl, rl, parallel_state, args.qkv_format,
+                batch["max_seq_lens"][i] if args.qkv_format == "bshd" else None,
+            )
+            for i, (lm, tl, rl) in enumerate(zip(
+                batch["loss_masks"], total_lengths, response_lengths, strict=False
+            ))
+        ], dim=0)
+        content_mask = cp_loss_masks.bool()
+
+        if content_mask.any():
+            content_diff = abs_diff[content_mask]
+            train_rollout_logprob_abs_diff = content_diff.mean()
+        else:
+            train_rollout_logprob_abs_diff = abs_diff.new_tensor(0.0)
+
+    # Dump per-sample logprob data for offline visualization
+    if args.monitor_logprob_diff:
+        _dump_logprob_diff(args, batch, parallel_state)
 
     reported_loss = {
         "loss": loss.clone().detach(),
@@ -645,6 +768,16 @@ def policy_loss_function(
 
     if train_rollout_logprob_abs_diff is not None:
         reported_loss["train_rollout_logprob_abs_diff"] = train_rollout_logprob_abs_diff.clone().detach()
+
+        if args.monitor_logprob_diff:
+            if content_mask.any():
+                reported_loss["logprob_diff_max"] = content_diff.max().clone().detach()
+                reported_loss["logprob_diff_frac_gt_0.1"] = (content_diff > 0.1).float().mean().clone().detach()
+                reported_loss["logprob_diff_frac_gt_1.0"] = (content_diff > 1.0).float().mean().clone().detach()
+            else:
+                reported_loss["logprob_diff_max"] = abs_diff.new_tensor(0.0)
+                reported_loss["logprob_diff_frac_gt_0.1"] = abs_diff.new_tensor(0.0)
+                reported_loss["logprob_diff_frac_gt_1.0"] = abs_diff.new_tensor(0.0)
 
     if args.use_kl_loss:
         reported_loss["kl_loss"] = kl_loss.clone().detach()
@@ -660,6 +793,10 @@ def policy_loss_function(
 
     if args.use_opsm:
         reported_loss["opsm_clipfrac"] = opsm_clipfrac
+
+    # DEBUG: final loss before return
+    if _dist.get_rank() == 0:
+        print(f"[LOSS_DEBUG] final_loss={loss.item():.6e}")
 
     return loss, reported_loss
 
@@ -855,6 +992,11 @@ def loss_function(
     else:
         if apply_megatron_loss_scaling:
             loss = loss * parallel_state.cp_size
+
+    # DEBUG: loss after megatron scaling
+    import torch.distributed as _dist2
+    if _dist2.get_rank() == 0:
+        print(f"[LOSS_DEBUG] scaled_loss={loss.item():.6e} loss_type={args.loss_type}")
 
     return (
         loss,

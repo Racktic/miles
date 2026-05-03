@@ -206,6 +206,9 @@ def forward_only(
 
         assert not return_schedule_plan, "forward_only step should never return schedule plan"
 
+        _mb_counter[0] += 1
+        _i = _mb_counter[0]
+
         # Get the batch.
         batch = get_batch(
             data_iterator,
@@ -236,6 +239,7 @@ def forward_only(
             **(batch["multimodal_train_inputs"] if batch["multimodal_train_inputs"] is not None else {}),
         )
 
+
         return output_tensor, partial(
             f,
             args=args,
@@ -261,19 +265,39 @@ def forward_only(
     # Don't care about timing during evaluation
     config.timers = None
     forward_data_store = []
+    _mb_counter = [0]  # mutable counter for closure
     num_steps_per_rollout = len(num_microbatches)
     for step_id in range(num_steps_per_rollout):
         # collect_non_loss_data
-        forward_data_store += forward_backward_func(
-            forward_step_func=forward_step,
-            data_iterator=data_iterator,
-            model=model,
-            num_microbatches=num_microbatches[step_id],
-            seq_length=args.seq_length,
-            micro_batch_size=args.micro_batch_size,
-            forward_only=True,
-            collect_non_loss_data=True,
-        )
+        try:
+            forward_data_store += forward_backward_func(
+                forward_step_func=forward_step,
+                data_iterator=data_iterator,
+                model=model,
+                num_microbatches=num_microbatches[step_id],
+                seq_length=args.seq_length,
+                micro_batch_size=args.micro_batch_size,
+                forward_only=True,
+                collect_non_loss_data=True,
+            )
+        except torch.cuda.OutOfMemoryError:
+            _trace_dir = getattr(args, "save", None) or getattr(args, "tensorboard_dir", None) or "."
+            _profile_dir = os.path.join(_trace_dir, "profiles")
+            os.makedirs(_profile_dir, exist_ok=True)
+            _rank = torch.distributed.get_rank()
+            _prefix = store_prefix.rstrip("_") or "fwd"
+            _snapshot_path = os.path.join(
+                _profile_dir,
+                f"{_prefix}_mb{_mb_counter[0]}_rank{_rank}_OOM.memory_snapshot.pickle",
+            )
+            torch.cuda.memory._dump_snapshot(_snapshot_path)
+            torch.cuda.memory._record_memory_history(enabled=None)
+            print(f"[PROFILE] OOM at mb={_mb_counter[0]}! Saved memory snapshot to {_snapshot_path}")
+            raise
+
+        _alloc = torch.cuda.memory_allocated() / 1e9
+        _resv = torch.cuda.memory_reserved() / 1e9
+        print(f"[forward_only][{store_prefix}] step={step_id} after all mbs: allocated={_alloc:.2f}GB reserved={_resv:.2f}GB")
 
     # Move model back to the train mode.
     for model_module in model:
@@ -330,6 +354,8 @@ def train_one_step(
 
         custom_before_train_step_hook = load_function(args.custom_megatron_before_train_step_hook_path)
         custom_before_train_step_hook(args, rollout_id, step_id, model, optimizer, opt_param_scheduler)
+    
+    _train_mb_counter = [0]  # mutable counter for closure
 
     def forward_step(data_iterator: DataIterator, model: GPTModel, return_schedule_plan: bool = False) -> tuple[
         torch.Tensor,
@@ -346,6 +372,12 @@ def train_one_step(
             Output tensor(s) and the loss function, which returns
             (loss, num_elems, {"keys": list[str], "values": torch.Tensor}).
         """
+
+        _train_mb_counter[0] += 1
+        _i = _train_mb_counter[0]
+        _alloc = torch.cuda.memory_allocated() / 1e9
+        _resv = torch.cuda.memory_reserved() / 1e9
+        print(f"[train_forward_step] mb={_i}: before_model allocated={_alloc:.2f}GB reserved={_resv:.2f}GB")
 
         # Get the batch.
         batch = get_batch(
@@ -411,16 +443,31 @@ def train_one_step(
 
     # Forward pass.
     forward_backward_func = get_forward_backward_func()
-    losses_reduced = forward_backward_func(
-        forward_step_func=forward_step,
-        data_iterator=data_iterator,
-        model=model,
-        num_microbatches=num_microbatches,
-        seq_length=args.seq_length,
-        micro_batch_size=args.micro_batch_size,
-        decoder_seq_length=args.decoder_seq_length,
-        forward_only=False,
-    )
+
+    try:
+        losses_reduced = forward_backward_func(
+            forward_step_func=forward_step,
+            data_iterator=data_iterator,
+            model=model,
+            num_microbatches=num_microbatches,
+            seq_length=args.seq_length,
+            micro_batch_size=args.micro_batch_size,
+            decoder_seq_length=args.decoder_seq_length,
+            forward_only=False,
+        )
+    except torch.cuda.OutOfMemoryError:
+        _trace_dir = getattr(args, "save", None) or getattr(args, "tensorboard_dir", None) or "."
+        _profile_dir = os.path.join(_trace_dir, "profiles")
+        os.makedirs(_profile_dir, exist_ok=True)
+        _rank = torch.distributed.get_rank()
+        _snapshot_path = os.path.join(
+            _profile_dir,
+            f"train_fwd_rollout{rollout_id}_step{step_id}_mb{_train_mb_counter[0]}_rank{_rank}_OOM.memory_snapshot.pickle",
+        )
+        torch.cuda.memory._dump_snapshot(_snapshot_path)
+        torch.cuda.memory._record_memory_history(enabled=None)
+        print(f"[PROFILE] OOM at mb={_train_mb_counter[0]}! Saved memory snapshot to {_snapshot_path}")
+        raise
 
     valid_step = True
     if not getattr(args, "check_for_nan_in_loss_and_grad", True):
@@ -436,7 +483,8 @@ def train_one_step(
 
     # CI check: verify only MTP parameters have non-zero gradients when truncation happens
     # This check must happen before optimizer.step() as gradients may be modified during step
-    if args.ci_test and args.enable_mtp_training:
+    if args.ci_test and args.enable_mtp_training and args.rollout_max_response_len <= 128:
+        # under response length <= 128, all outputs are truncated and loss mask is all zeros, so only MTP parameters have non-zero gradients
         from miles.backends.megatron_utils.ci_utils import check_mtp_only_grad
 
         check_mtp_only_grad(model, step_id)
@@ -704,6 +752,7 @@ def save_hf_model(args, rollout_id: int, model: Sequence[DDP]) -> None:
     try:
         from megatron.bridge import AutoBridge
 
+        import miles_plugins.megatron_bridge  # noqa: F401
         from miles.utils.megatron_bridge_utils import patch_megatron_model
 
         path = Path(args.save_hf.format(rollout_id=rollout_id))

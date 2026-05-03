@@ -80,18 +80,42 @@ def get_model_provider_func(
     if args.megatron_to_hf_mode == "bridge":
         from megatron.bridge import AutoBridge
 
+        import miles_plugins.megatron_bridge  # noqa: F401
+
         bridge = AutoBridge.from_hf_pretrained(args.hf_checkpoint, trust_remote_code=True)
         provider = bridge.to_megatron_provider(load_weights=False)
-        # TODO: we should not manually set this...
-        provider.tensor_model_parallel_size = args.tensor_model_parallel_size
-        provider.pipeline_model_parallel_size = args.pipeline_model_parallel_size
-        provider.expert_model_parallel_size = args.expert_model_parallel_size
-        provider.expert_tensor_parallel_size = args.expert_tensor_parallel_size
-        provider.sequence_parallel = args.sequence_parallel
+        # Fix megatron CP issue:
+        # 1) Provide context_parallel_size so TransformerEngine's attn_forward_func_with_cp()
+        #    in megatron-LM receives the correct CP topology instead of defaulting to 1.
+        # 2) Provide attention_backend="flash" to replace the default cuDNN fused attention
+        #    in TransformerEngine, which avoids CUDNN_STATUS_SUBLIBRARY_LOADING_FAILED
+        #    when using context parallelism with ring attention.
+        for attr_name, attr_value in [
+            ("tensor_model_parallel_size", args.tensor_model_parallel_size),
+            ("pipeline_model_parallel_size", args.pipeline_model_parallel_size),
+            ("virtual_pipeline_model_parallel_size", args.virtual_pipeline_model_parallel_size),
+            ("decoder_first_pipeline_num_layers", args.decoder_first_pipeline_num_layers),
+            ("decoder_last_pipeline_num_layers", args.decoder_last_pipeline_num_layers),
+            ("num_layers_in_first_pipeline_stage", args.decoder_first_pipeline_num_layers),
+            ("num_layers_in_last_pipeline_stage", args.decoder_last_pipeline_num_layers),
+            ("expert_model_parallel_size", args.expert_model_parallel_size),
+            ("expert_tensor_parallel_size", args.expert_tensor_parallel_size),
+            ("context_parallel_size", args.context_parallel_size),
+            ("hierarchical_context_parallel_sizes", args.hierarchical_context_parallel_sizes),
+            ("sequence_parallel", args.sequence_parallel),
+            ("attention_backend", args.attention_backend),
+            ("variable_seq_lengths", args.variable_seq_lengths),
+            ("moe_token_dispatcher_type", getattr(args, "moe_token_dispatcher_type", "alltoall")),
+        ]:
+            if hasattr(provider, attr_name):
+                setattr(provider, attr_name, attr_value)
+            else:
+                print(f"Warning: Bridge provider has no attribute '{attr_name}', skip setting it.")
+
         provider.finalize()
         return provider.provide
 
-    def model_provider(pre_process: bool = True, post_process: bool = True, vp_stage: int | None = None) -> GPTModel:
+    def model_provider(pre_process: bool = True, post_process: bool = True, vp_stage: int | None = None, **kwargs) -> GPTModel:
         """Builds the model.
 
         If you set the use_legacy_models to True, it will return the legacy GPT model and if not the mcore GPT model.

@@ -1,0 +1,24 @@
+# GLM-4-32B
+model:
+  spec: '"miles_plugins.models.glm4" "get_glm_spec"'
+  swiglu: true
+  num_layers: 64
+  hidden_size: 6144
+  ffn_hidden_size: 23040
+  num_attention_heads: 48
+  max_position_embeddings: 32768
+  seq_length: 32768
+  use_rotary_position_embeddings: true
+  disable_bias_linear: true
+  normalization: RMSNorm
+  norm_epsilon: 1e-5
+  rotary_base: 10000
+  group_query_attention: true
+  num_query_groups: 8
+  vocab_size: 151552
+  post_self_attn_layernorm: true
+  post_mlp_layernorm: true
+  rotary_interleaved: true
+  rotary_percent: 0.5
+  no_rope_fusion: true
+  untie_embeddings_and_output_weights: true

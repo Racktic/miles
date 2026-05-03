@@ -15,6 +15,9 @@
 
 import copy
 import heapq
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def karmarkar_karp(seqlen_list: list[int], k_partitions: int, equal_size: bool):
@@ -143,7 +146,9 @@ def greedy_partition(seqlen_list: list[int], k_partitions: int, equal_size: bool
     return partitions
 
 
-def get_seqlen_balanced_partitions(seqlen_list: list[int], k_partitions: int, equal_size: bool):
+def get_seqlen_balanced_partitions(
+    seqlen_list: list[int], k_partitions: int, equal_size: bool
+):
     """get order of seq lengths to make partitions balanced, this is
         used in balacing sum of seqlength across dp ranks and microbatches
     Parameters:
