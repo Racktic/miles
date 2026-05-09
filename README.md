@@ -112,6 +112,34 @@ python train.py \
 
 For comprehensive guides on environment setup and custom reward functions, see the [Quick Start Guide](docs/en/get_started/quick_start.md).
 
+### Brew Modal SWE-Agent Example
+
+Miles can train SWE/R2E tasks through Brew Modal by using the SWE-agent UDA hooks and a small Brew-compatible `/run` adapter. The example scripts live in `examples/experimental/swe-agent/brew-modal/` and expect Brew to be importable in the environment that runs the adapter.
+
+Start the Brew adapter:
+
+```bash
+PYTHONPATH=/path/to/brew:$PYTHONPATH \
+python examples/experimental/swe-agent/brew-modal/serve_brew_uda.py \
+  --host 0.0.0.0 \
+  --port 11001
+```
+
+Run one-node training:
+
+```bash
+BREW_ADAPTER_URL=http://127.0.0.1:11001 \
+bash examples/experimental/swe-agent/brew-modal/run-qwen3-4b-instruct-brew-modal-1node.sh
+```
+
+Run two-node training against an existing Ray cluster:
+
+```bash
+MASTER_ADDR=<ray-head-ip> \
+BREW_ADAPTER_URL=http://<brew-host>:11001 \
+bash examples/experimental/swe-agent/brew-modal/run-qwen3-4b-instruct-brew-modal-2node.sh
+```
+
 ---
 
 ## Roadmap
