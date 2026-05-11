@@ -12,7 +12,7 @@ from miles.rollout.sglang_rollout import GenerateState, eval_rollout
 from miles.utils.async_utils import run
 from miles.utils.http_utils import post
 from miles.utils.types import Sample
-from uda.swe_agent.proxy import TITOProxy
+from examples.nanorollout.proxy import TITOProxy
 
 logger = logging.getLogger(__name__)
 
@@ -247,12 +247,7 @@ def build_request(args: Namespace, sample: Sample, sampling_params: dict[str, An
     DEFAULT_MAX_ITERATIONS = 100
     DEFAULT_TASK_TIMEOUT = 1800
 
-    runtime_env_env_vars = {}
-    enroot_cache_path = os.environ.get("ENROOT_CACHE_PATH")
-    if enroot_cache_path:
-        runtime_env_env_vars["ENROOT_CACHE_PATH"] = enroot_cache_path
-
-    runtime_env = {"env_vars": runtime_env_env_vars}
+    runtime_env = {"env_vars": {}}
     metadata = sample.metadata
 
     if getattr(args, "tito", False):
@@ -271,11 +266,10 @@ def build_request(args: Namespace, sample: Sample, sampling_params: dict[str, An
         "run_name": f"{args.wandb_experiment_name}-step_{rollout_id}",
         "base_url": base_url,
         "api_key": api_key,
-        "env_type": metadata.get("env_type", "enroot"),
+        "env_type": metadata.get("env_type", "modal"),
         "sampling_params": sampling_params,
         "runtime_env": runtime_env,
-        "runner": _resolve(metadata, args, "runner", "agent_runner", "oh-core"),
-        "runner_entrypoint": _resolve(metadata, args, "runner_entrypoint", "agent_runner_entrypoint", "run_oh_core"),
+        "runner": _resolve(metadata, args, "runner", "agent_runner", "oh-lite"),
         "task_type": metadata.get("task_type", "swe"),
         "extra_args": {
             "instance_id": metadata["instance_id"],
@@ -295,14 +289,7 @@ def build_request(args: Namespace, sample: Sample, sampling_params: dict[str, An
 
 async def generate(args: Namespace, sample: Sample, sampling_params: dict[str, Any]) -> Sample:
     """
-    Custom generation function for SWE-Agent integration.
-
-    Orchestrates the interaction with the external Gym environment:
-    1. Sends prompt/metadata to Gym.
-    2. Receives execution trace (messages) and rewards.
-    3. Formats data for Miles training format.
-
-    Note: Performs in-place modification of `sample` for memory efficiency.
+    Custom generation function for NanoRollout integration.
     """
 
     # mocked messages for failed response
@@ -321,17 +308,17 @@ async def generate(args: Namespace, sample: Sample, sampling_params: dict[str, A
             "agent_metrics": {},
         }
 
-    # Prepare request for Gym /run endpoint
+    # Prepare request for NanoRollout /run endpoint
     state = GenerateState(args)
     rollout_id = getattr(state, "rollout_id", 0)
     payload = build_request(args, sample, sampling_params, rollout_id)
 
-    gym_url = os.getenv("SWE_AGENT_GYM_URL")
-    assert gym_url, "SWE_AGENT_GYM_URL is not set"
+    nanorollout_url = os.getenv("NANOROLLOUT_URL")
+    assert nanorollout_url, "NANOROLLOUT_URL is not set"
     try:
-        response = await asyncio.wait_for(post(f"{gym_url}/run", payload), timeout=None)
+        response = await asyncio.wait_for(post(f"{nanorollout_url}/run", payload), timeout=None)
     except Exception as e:
-        logger.warning(f"SWE-Agent /run failed: {e}")
+        logger.warning(f"NanoRollout /run failed: {e}")
         response = build_failed_response()
 
     exit_status = response.get("exit_status", "unknown")
@@ -480,22 +467,6 @@ async def generate(args: Namespace, sample: Sample, sampling_params: dict[str, A
             f"last_role={last_msg.get('role', 'none')} "
             f"last_content_preview={repr(last_content_preview)}"
         )
-        save_dir = os.environ.get("SAVE_FAILED_TRAJ_DIR")
-        if save_dir:
-            os.makedirs(save_dir, exist_ok=True)
-            traj_path = os.path.join(save_dir, f"{task_id}.json")
-            try:
-                with open(traj_path, "w") as f:
-                    json.dump({
-                        "task_id": task_id,
-                        "exit_status": exit_status,
-                        "mode": mode,
-                        "agent_metrics": agent_metrics,
-                        "messages": messages,
-                    }, f, indent=2)
-                logger.info(f"[TRAJ-SAVED] {traj_path}")
-            except Exception as e:
-                logger.warning(f"[TRAJ-SAVE-FAILED] {e}")
 
     sample.metadata["reward"] = response.get("reward", 0.0)
     sample.metadata["eval_report"] = response.get("metadata", {})

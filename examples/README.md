@@ -13,6 +13,7 @@ These examples provide concrete examples to leverage miles in your own RL workfl
 - **[geo3k_vlm_multi_turn](./geo3k_vlm_multi_turn)**: VLM multi-turn training (FSDP backend) on Geo3k dataset.
 - **[low_precision](./low_precision)**: Examples of FP8 training and inference for improved throughput and stability.
 - **[multi_agent](./multi_agent)**: Example of running multi-agent RL with `miles`.
+- **[nanorollout](./nanorollout)**: Training with an externally managed NanoRollout server.
 - **[on_policy_distillation](./on_policy_distillation)**: Example implementation for on-policy distillation, extending the reinforcement learning pipeline to support teacher–student distillation directly within on-policy training.
 - **[reproducibility](./reproducibility)**: Guides on achieving bitwise experiment reproduction using deterministic modes.
 - **[retool](./retool)**: Demonstrates the retool functionality for tool-enabled language model generation.

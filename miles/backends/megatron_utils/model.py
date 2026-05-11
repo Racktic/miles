@@ -269,31 +269,16 @@ def forward_only(
     num_steps_per_rollout = len(num_microbatches)
     for step_id in range(num_steps_per_rollout):
         # collect_non_loss_data
-        try:
-            forward_data_store += forward_backward_func(
-                forward_step_func=forward_step,
-                data_iterator=data_iterator,
-                model=model,
-                num_microbatches=num_microbatches[step_id],
-                seq_length=args.seq_length,
-                micro_batch_size=args.micro_batch_size,
-                forward_only=True,
-                collect_non_loss_data=True,
-            )
-        except torch.cuda.OutOfMemoryError:
-            _trace_dir = getattr(args, "save", None) or getattr(args, "tensorboard_dir", None) or "."
-            _profile_dir = os.path.join(_trace_dir, "profiles")
-            os.makedirs(_profile_dir, exist_ok=True)
-            _rank = torch.distributed.get_rank()
-            _prefix = store_prefix.rstrip("_") or "fwd"
-            _snapshot_path = os.path.join(
-                _profile_dir,
-                f"{_prefix}_mb{_mb_counter[0]}_rank{_rank}_OOM.memory_snapshot.pickle",
-            )
-            torch.cuda.memory._dump_snapshot(_snapshot_path)
-            torch.cuda.memory._record_memory_history(enabled=None)
-            print(f"[PROFILE] OOM at mb={_mb_counter[0]}! Saved memory snapshot to {_snapshot_path}")
-            raise
+        forward_data_store += forward_backward_func(
+            forward_step_func=forward_step,
+            data_iterator=data_iterator,
+            model=model,
+            num_microbatches=num_microbatches[step_id],
+            seq_length=args.seq_length,
+            micro_batch_size=args.micro_batch_size,
+            forward_only=True,
+            collect_non_loss_data=True,
+        )
 
         _alloc = torch.cuda.memory_allocated() / 1e9
         _resv = torch.cuda.memory_reserved() / 1e9
@@ -444,30 +429,16 @@ def train_one_step(
     # Forward pass.
     forward_backward_func = get_forward_backward_func()
 
-    try:
-        losses_reduced = forward_backward_func(
-            forward_step_func=forward_step,
-            data_iterator=data_iterator,
-            model=model,
-            num_microbatches=num_microbatches,
-            seq_length=args.seq_length,
-            micro_batch_size=args.micro_batch_size,
-            decoder_seq_length=args.decoder_seq_length,
-            forward_only=False,
-        )
-    except torch.cuda.OutOfMemoryError:
-        _trace_dir = getattr(args, "save", None) or getattr(args, "tensorboard_dir", None) or "."
-        _profile_dir = os.path.join(_trace_dir, "profiles")
-        os.makedirs(_profile_dir, exist_ok=True)
-        _rank = torch.distributed.get_rank()
-        _snapshot_path = os.path.join(
-            _profile_dir,
-            f"train_fwd_rollout{rollout_id}_step{step_id}_mb{_train_mb_counter[0]}_rank{_rank}_OOM.memory_snapshot.pickle",
-        )
-        torch.cuda.memory._dump_snapshot(_snapshot_path)
-        torch.cuda.memory._record_memory_history(enabled=None)
-        print(f"[PROFILE] OOM at mb={_train_mb_counter[0]}! Saved memory snapshot to {_snapshot_path}")
-        raise
+    losses_reduced = forward_backward_func(
+        forward_step_func=forward_step,
+        data_iterator=data_iterator,
+        model=model,
+        num_microbatches=num_microbatches,
+        seq_length=args.seq_length,
+        micro_batch_size=args.micro_batch_size,
+        decoder_seq_length=args.decoder_seq_length,
+        forward_only=False,
+    )
 
     valid_step = True
     if not getattr(args, "check_for_nan_in_loss_and_grad", True):

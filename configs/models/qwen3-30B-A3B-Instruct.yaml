@@ -1,6 +1,0 @@
-# Qwen3-30B-A3B-Instruct (same as Qwen3-30B-A3B but with rotary_base=10000000)
-_includes:
-  - qwen3-30B-A3B.yaml
-
-model:
-  rotary_base: 10000000

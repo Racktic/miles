@@ -18,11 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def _normalize_tool_calls_for_template(messages: list[dict]) -> list[dict]:
-    """Qwen3 template expects tool_call arguments as dicts, not JSON strings.
-    The H1b fix stores arguments as JSON strings (OpenAI spec).  Before passing
-    messages to apply_chat_template we convert them back to dicts so the Jinja2
-    template's .items() filter doesn't crash on turn 2+.
-    """
+    """Hermes tool call template expects tool_call arguments as dicts, not JSON strings."""
     result = []
     for msg in messages:
         if msg.get("role") == "assistant" and msg.get("tool_calls"):
@@ -68,13 +64,6 @@ class TITOProxy:
 
         self.port = self._find_free_port()
         self._start_server()
-
-        logger.info(
-            f"[TITO-INIT] sglang_base_url={sglang_base_url} "
-            f"use_rollout_routing_replay={getattr(args, 'use_rollout_routing_replay', 'MISSING')} "
-            f"num_layers={getattr(args, 'num_layers', 'MISSING')} "
-            f"moe_router_topk={getattr(args, 'moe_router_topk', 'MISSING')}"
-        )
 
     @staticmethod
     def _find_free_port() -> int:
@@ -129,6 +118,7 @@ class TITOProxy:
 
         # Run CPU-bound tokenization in thread pool to avoid blocking the
         # event loop (512 concurrent tasks share this single async server).
+        # TODO(Junli): skip re-tokenization
         def _tokenize():
             new_items = converter.tokenize_new_messages(messages, pre_msg_length, tools=tools)
             state.add_message_items(new_items)
@@ -140,12 +130,11 @@ class TITOProxy:
 
         input_ids = await asyncio.to_thread(_tokenize)
 
-        # Log dropped parameters (H2 debug)
         forwarded_keys = {"temperature", "top_p", "max_tokens", "stop"}
         all_keys = set(request_data.keys()) - {"messages", "tools", "model", "stream"}
         dropped_keys = all_keys - forwarded_keys
         if dropped_keys:
-            logger.warning(
+            logger.debug(
                 f"[TITO-PARAM-DROP] task={task_id} dropped_params={sorted(dropped_keys)} "
                 f"dropped_values={{k: request_data[k] for k in dropped_keys if k in request_data}}"
             )
@@ -168,7 +157,7 @@ class TITOProxy:
             "pre_recorded_experts_length": state.get_routed_experts_length(),
         }
 
-        logger.info(
+        logger.debug(
             f"[TITO-DEBUG] task={task_id} sending /generate "
             f"input_ids_len={len(input_ids)} "
             f"sampling_params={generate_payload['sampling_params']} "
@@ -185,7 +174,7 @@ class TITOProxy:
             )
             output = resp.json()
 
-        logger.info(
+        logger.debug(
             f"[TITO-DEBUG] task={task_id} "
             f"meta_info_keys={sorted(output.get('meta_info', {}).keys())} "
             f"has_routed_experts={'routed_experts' in output.get('meta_info', {})} "
@@ -212,15 +201,6 @@ class TITOProxy:
 
         text = output["text"]
         meta_info = output["meta_info"]
-
-        logger.info(
-            f"[TITO-RESPONSE] task={task_id} "
-            f"finish_reason={meta_info.get('finish_reason')} "
-            f"text_len={len(text)} "
-            f"has_tool_call_marker={'<tool_call>' in text} "
-            f"has_function_marker={'<function=' in text} "
-            f"output_tokens={len(meta_info.get('output_token_logprobs', []))}"
-        )
         
         output_token_logprobs = meta_info.get("output_token_logprobs", [])
         output_ids = [item[1] for item in output_token_logprobs]
@@ -235,14 +215,6 @@ class TITOProxy:
             num_layers = self.args.num_layers
             topk = self.args.moe_router_topk
             routed_experts = raw.reshape(num_new_tokens, num_layers, topk)
-
-        logger.info(
-            f"[TITO-DEBUG] task={task_id} "
-            f"routed_experts_shape={routed_experts.shape if routed_experts is not None else None} "
-            f"num_output_ids={len(output_ids)} "
-            f"num_layers={getattr(self.args, 'num_layers', 'MISSING')} "
-            f"topk={getattr(self.args, 'moe_router_topk', 'MISSING')}"
-        )
 
         state.add_response(output_ids, output_logprobs, routed_experts)
 

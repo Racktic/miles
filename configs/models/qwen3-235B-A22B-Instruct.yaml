@@ -1,6 +1,0 @@
-# Qwen3-235B-A22B-Instruct (same as Qwen3-235B-A22B but with rotary_base=5000000)
-_includes:
-  - qwen3-235B-A22B.yaml
-
-model:
-  rotary_base: 5000000

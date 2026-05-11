@@ -1,7 +1,0 @@
-# Kimi-K2-Thinking (same as Kimi-K2 but with norm_epsilon=1e-5 and rotary_scaling_factor=64.0)
-_includes:
-  - kimi-k2.yaml
-
-model:
-  norm_epsilon: 1e-5
-  rotary_scaling_factor: 64.0

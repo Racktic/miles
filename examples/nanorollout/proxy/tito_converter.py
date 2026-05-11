@@ -95,14 +95,6 @@ class ChatConverter:
                 text, call_info_list = parser.parse_non_stream(text)
 
                 text_changed = text != original_text
-                logger.info(
-                    f"[TITO-TOOLCALL] parser={self.tool_call_parser} "
-                    f"found_calls={len(call_info_list) if call_info_list else 0} "
-                    f"text_modified={text_changed} "
-                    f"original_len={len(original_text)} parsed_len={len(text)} "
-                    f"finish_reason_in={finish_reason} "
-                    f"finish_reason_out={'tool_calls' if call_info_list else finish_reason}"
-                )
                 if call_info_list:
                     finish_reason = "tool_calls"
                     tool_calls_list = [
@@ -121,13 +113,13 @@ class ChatConverter:
                         for ci in call_info_list
                     ]
                     for ci in call_info_list:
-                        logger.info(
+                        logger.debug(
                             f"[TITO-TOOLCALL-DETAIL] name={ci.name} "
                             f"args_type={type(ci.parameters).__name__} "
                             f"args_preview={str(ci.parameters)[:200]}"
                         )
                 elif "<tool_call>" in original_text:
-                    logger.warning(
+                    logger.debug(
                         f"[TITO-TOOLCALL-MISS] <tool_call> marker found but parser returned empty! "
                         f"text_preview={original_text[:500]}"
                     )

@@ -1,6 +1,0 @@
-# Qwen2.5-32B-Instruct (same as Qwen2.5-32B but with norm_epsilon=1e-6)
-_includes:
-  - qwen2.5-32B.yaml
-
-model:
-  norm_epsilon: 1e-6

@@ -1,7 +1,0 @@
-# DeepSeek-V3 (20-layer subset for debugging)
-_includes:
-  - deepseek-v3.yaml
-
-model:
-  num_layers: 20
-  moe_layer_freq: "[0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]"

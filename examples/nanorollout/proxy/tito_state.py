@@ -37,7 +37,7 @@ class TaskState:
             logprobs = logprobs[:-1]
             if routed_experts is not None:
                 routed_experts = routed_experts[:-1]
-            _logger.info(f"[TITO-STOP] Stripped im_end token. remaining_len={len(token_ids)}")
+            _logger.debug(f"[TITO-STOP] Stripped im_end token. remaining_len={len(token_ids)}")
         elif self.im_end_token_id is not None and token_ids:
             _logger.warning(
                 f"[TITO-STOP-MISS] im_end NOT found at end. "
@@ -72,12 +72,6 @@ class TaskState:
             routed_experts=routed_experts,
         )
         self.messages.append(item)
-        _logger.info(
-            f"[TITO-STATE] add_response: msg_idx={item.index} "
-            f"token_ids_len={len(wrapped_ids)} (raw={len(token_ids)}, prefix={n_prefix}, suffix={n_suffix}) "
-            f"has_routed_experts={routed_experts is not None} "
-            f"routed_experts_shape={routed_experts.shape if routed_experts is not None else None}"
-        )
 
     def get_input_ids(self) -> list[int]:
         input_ids = []
@@ -88,7 +82,7 @@ class TaskState:
     def get_routed_experts_length(self) -> int:
         length = sum(len(item.token_ids) for item in self.messages
             if item.routed_experts is not None)
-        _logger.info(f"[TITO-STATE] get_routed_experts_length={length} total_messages={len(self.messages)}")
+        _logger.debug(f"[TITO-STATE] get_routed_experts_length={length} total_messages={len(self.messages)}")
         return length
 
     def finalize(self) -> dict:
@@ -148,7 +142,7 @@ class TaskState:
         else:
             all_routed_experts = None
 
-        _logger.info(
+        _logger.debug(
             f"[TITO-STATE] finalize: total_messages={len(self.messages)} "
             f"first_assistant_idx={first_assistant_idx} "
             f"routed_experts_list_len={len(routed_experts_list)} "
