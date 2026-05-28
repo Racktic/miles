@@ -1,6 +1,7 @@
 import logging
 import json
 import asyncio
+import copy
 import os
 from argparse import Namespace
 from collections.abc import Callable
@@ -247,8 +248,12 @@ def build_request(args: Namespace, sample: Sample, sampling_params: dict[str, An
     DEFAULT_MAX_ITERATIONS = 100
     DEFAULT_TASK_TIMEOUT = 1800
 
+    DEFAULT_MAX_ROUNDS = 50
+    DEFAULT_FORCE_ARCHIVE_AFTER_TURNS = 100000  # effectively disabled → append-only
+
     runtime_env = {"env_vars": {}}
     metadata = sample.metadata
+    task_type = _resolve(metadata, args, "task_type", "agent_task_type", "swe")
 
     if getattr(args, "tito", False):
         proxy = _get_tito_proxy(args, GenerateState(args).tokenizer)
@@ -258,17 +263,45 @@ def build_request(args: Namespace, sample: Sample, sampling_params: dict[str, An
         base_url = f"http://{args.sglang_router_ip}:{args.sglang_router_port}/v1"
         api_key = metadata.get("api_key", "abc-123")
 
-
-    payload = {
+    common = {
         "instance_id": metadata["instance_id"],
         "task_timeout_s": _resolve(metadata, args, "task_timeout", "agent_task_timeout", DEFAULT_TASK_TIMEOUT),
         "model_name": getattr(args, "model_name", None) or os.path.basename(args.hf_checkpoint.rstrip("/")),
         "run_name": f"{args.wandb_experiment_name}-step_{rollout_id}",
         "base_url": base_url,
         "api_key": api_key,
-        "env_type": metadata.get("env_type", "modal"),
         "sampling_params": sampling_params,
         "runtime_env": runtime_env,
+    }
+
+    if task_type == "deepresearch":
+        # DeepResearch (Qwen3.5) browser-research rollout. Routes to the
+        # `qwen35` runner (a legacy alias of the deepresearch/qwen35 adapter).
+        # The BrowserEnv is created locally by the adapter, so env_type is
+        # informational. force_archive_after_turns is set very high to keep the
+        # working context append-only (Strategy C), which is what lets the TITO
+        # /completions capture assemble a faithful single training sequence;
+        # see proxy/tito_state.add_completion_round and its append-only canary.
+        return {
+            **common,
+            "env_type": metadata.get("env_type", "local"),
+            "runner": _resolve(metadata, args, "runner", "agent_runner", "qwen35"),
+            "task_type": "deepresearch",
+            "extra_args": {
+                "search_url": _resolve(metadata, args, "search_url", "agent_search_url", None),
+                "dataset_name": _resolve(metadata, args, "dataset_name", "agent_dataset_name", "browsecomp-plus"),
+                "data_path": _resolve(metadata, args, "data_path", "agent_data_path", None),
+                "force_archive_after_turns": _resolve(
+                    metadata, args, "force_archive_after_turns",
+                    "agent_force_archive_after_turns", DEFAULT_FORCE_ARCHIVE_AFTER_TURNS,
+                ),
+                "max_rounds": _resolve(metadata, args, "max_rounds", "agent_max_rounds", DEFAULT_MAX_ROUNDS),
+            },
+        }
+
+    payload = {
+        **common,
+        "env_type": metadata.get("env_type", "modal"),
         "runner": _resolve(metadata, args, "runner", "agent_runner", "oh-lite"),
         "task_type": metadata.get("task_type", "swe"),
         "extra_args": {
@@ -312,6 +345,10 @@ async def generate(args: Namespace, sample: Sample, sampling_params: dict[str, A
     state = GenerateState(args)
     rollout_id = getattr(state, "rollout_id", 0)
     payload = build_request(args, sample, sampling_params, rollout_id)
+    # DeepResearch uses /completions (raw prompt) not native chat tool-calls, so
+    # the post-hoc "retokenize from messages" cross-check (H5) does not apply:
+    # `messages` is the untruncated record while the TITO capture is authoritative.
+    is_deepresearch = _resolve(sample.metadata, args, "task_type", "agent_task_type", "swe") == "deepresearch"
 
     nanorollout_url = os.getenv("NANOROLLOUT_URL")
     assert nanorollout_url, "NANOROLLOUT_URL is not set"
@@ -346,14 +383,32 @@ async def generate(args: Namespace, sample: Sample, sampling_params: dict[str, A
         sample.prompt = messages[:2]
 
     tito_data = None
+    deepresearch_rounds = None
     if getattr(args, "tito", False):
         task_id = f"tito-{instance_id}-{sample.index}"
         proxy = _get_tito_proxy(args, state.tokenizer)
-        tito_data = proxy.get_task_result(task_id)
+
+        if is_deepresearch:
+            # Strategy B: capture ONE self-consistent (prompt, completion, logprobs)
+            # training sample per /completions round. This is faithful even when the
+            # agent re-renders earlier assistant turns differently from their raw
+            # generation (which would bias a single append-only sequence). We fan out
+            # to a list[Sample] at the very end; `tito_data` below is just a template
+            # for the shared logging/metadata path.
+            deepresearch_rounds = proxy.get_task_rounds(task_id) or None
+            if deepresearch_rounds:
+                logger.info(
+                    f"[TITO-ROUNDS] task={task_id} rounds={len(deepresearch_rounds)} "
+                    f"total_response_len={sum(r['response_length'] for r in deepresearch_rounds)}"
+                )
+                tito_data = deepresearch_rounds[0]  # placeholder; real data fanned out below
+        else:
+            tito_data = proxy.get_task_result(task_id)
 
         if tito_data is None:
-            # Agent failed before making any LLM calls — build fallback data
-            logger.warning(f"[TITO] No state for task={task_id}, building fallback from messages")
+            # No capture (agent failed before any LLM call, or no completion rounds)
+            # — build fallback data from the returned messages.
+            logger.warning(f"[TITO] No capture for task={task_id}, building fallback from messages")
             tokens, loss_mask, response_text, response_length = build_tokens_and_mask_from_messages(
                 args=args, messages=messages, tokenizer=state.tokenizer, tools=tools,
             )
@@ -383,7 +438,7 @@ async def generate(args: Namespace, sample: Sample, sampling_params: dict[str, A
         sample.response_length = tito_data["response_length"]
 
         # H5: cross-compare TITO tokens with re-tokenized tokens
-        if messages and len(messages) > 2:
+        if messages and len(messages) > 2 and not is_deepresearch:
             try:
                 retok_tokens, retok_mask, _, retok_resp_len = build_tokens_and_mask_from_messages(
                     args=args, messages=messages, tokenizer=state.tokenizer, tools=tools,
@@ -503,6 +558,32 @@ async def generate(args: Namespace, sample: Sample, sampling_params: dict[str, A
         f"agent_turns={agent_metrics.get('turns', 'N/A')} "
         f"agent_tool_calls={agent_metrics.get('tool_calls', 'N/A')}"
     )
+
+    # Strategy B fan-out: emit one training Sample per /completions round. Each
+    # carries the shared trajectory metadata/exit_status set above (so reward_func
+    # resolves the same trajectory reward for every round via metadata["reward"]),
+    # but its OWN faithful (prompt, completion, logprobs). The rollout loop accepts
+    # a list[Sample] (sglang_rollout.generate_and_rm) and miles/ray/rollout.py
+    # flattens nested groups, so each round becomes an independent training example.
+    # Memory note: deepcopy duplicates the (large) message metadata per round; fine
+    # at research batch sizes. Empty-response rounds are dropped.
+    if deepresearch_rounds:
+        fanned: list[Sample] = []
+        for rd in deepresearch_rounds:
+            if rd["response_length"] <= 0:
+                continue
+            s = copy.deepcopy(sample)
+            s.tokens = rd["tokens"]
+            s.loss_mask = rd["loss_mask"]
+            s.rollout_log_probs = rd["rollout_log_probs"]
+            s.rollout_routed_experts = rd["rollout_routed_experts"]
+            s.response = rd["response"]
+            s.response_length = rd["response_length"]
+            fanned.append(s)
+        if fanned:
+            logger.info(f"[TITO-ROUNDS] task={task_id} fanned_out={len(fanned)} training samples")
+            return fanned
+        # No non-empty rounds: fall through to the single template sample.
 
     return sample
 
