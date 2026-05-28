@@ -9,12 +9,17 @@ import numpy as np
 import pybase64
 import uvicorn
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from .tito_state import TaskState
 from .tito_converter import ChatConverter
 
 logger = logging.getLogger(__name__)
+
+# DeepResearch (Qwen3.5) agent stop markers — mirrors QWEN_STOP_STRINGS in
+# nanorollout/harness/agents/deepresearch/qwen35_agent.py. Used as the default
+# `stop` for the /completions path when a caller omits it.
+QWEN_STOP_STRINGS = ("\n<tool_response>", "<tool_response>")
 
 
 def _normalize_tool_calls_for_template(messages: list[dict]) -> list[dict]:
@@ -77,7 +82,11 @@ class TITOProxy:
         @app.post("/v1/chat/completions")
         async def chat_completions(request: Request):
             return await self.handle_chat_completion(request)
-        
+
+        @app.post("/v1/completions")
+        async def completions(request: Request):
+            return await self.handle_completion(request)
+
         thread = threading.Thread(
             target = uvicorn.run,
             args=(app,),
@@ -199,9 +208,19 @@ class TITOProxy:
                 status_code=resp.status_code if resp.status_code >= 400 else 400,
             )
 
+        text, output_ids, output_logprobs, routed_experts = self._extract_generation(output)
+
+        state.add_response(output_ids, output_logprobs, routed_experts)
+
+        chat_response = converter.build_response(request_data, output, text)
+        return JSONResponse(content=chat_response)
+
+    def _extract_generation(self, output: dict):
+        """Pull (text, token_ids, logprobs, routed_experts) out of an SGLang
+        /generate response. Shared by the chat and completions handlers."""
         text = output["text"]
         meta_info = output["meta_info"]
-        
+
         output_token_logprobs = meta_info.get("output_token_logprobs", [])
         output_ids = [item[1] for item in output_token_logprobs]
         output_logprobs = [item[0] for item in output_token_logprobs]
@@ -216,18 +235,165 @@ class TITOProxy:
             topk = self.args.moe_router_topk
             routed_experts = raw.reshape(num_new_tokens, num_layers, topk)
 
-        state.add_response(output_ids, output_logprobs, routed_experts)
+        return text, output_ids, output_logprobs, routed_experts
 
-        chat_response = converter.build_response(request_data, output, text)
-        return JSONResponse(content=chat_response)
-    
+    def _truncate_at_stop(self, output_ids, output_logprobs, routed_experts, stop):
+        """Defensive: cut captured tokens at the first stop-string occurrence.
+
+        SGLang already stops at `stop` (and trims it) when the param is set, so
+        this is normally a no-op. It guards against partial-token boundaries and
+        any future caller that omits `stop`, so captured tokens == the tokens the
+        agent keeps (the agent does its own client-side stop-cut). We keep the
+        largest token prefix whose decoded text stays strictly before the marker
+        — a token straddling the boundary is dropped (we cannot split a token).
+        """
+        text = self.tokenizer.decode(output_ids)
+        if not stop or not output_ids:
+            return output_ids, output_logprobs, routed_experts, text
+        positions = [text.find(s) for s in stop]
+        cut = min((p for p in positions if p != -1), default=-1)
+        if cut < 0:
+            return output_ids, output_logprobs, routed_experts, text
+        keep = 0
+        for n in range(1, len(output_ids) + 1):
+            if len(self.tokenizer.decode(output_ids[:n])) <= cut:
+                keep = n
+            else:
+                break
+        logger.warning(
+            "[TITO-STOP-TRUNCATE] /completions output contained an un-trimmed "
+            "stop string at char %d; truncating %d→%d tokens.",
+            cut, len(output_ids), keep,
+        )
+        rex = routed_experts[:keep] if routed_experts is not None else None
+        return (
+            output_ids[:keep],
+            output_logprobs[:keep],
+            rex,
+            self.tokenizer.decode(output_ids[:keep]),
+        )
+
+    async def handle_completion(self, request: Request):
+        """Token-in/token-out capture for the DeepResearch (Qwen3.5) agent, which
+        uses /completions: it renders the chat template itself, sends a raw prompt
+        string, and parses <tool_call> manually. We capture the exact generated
+        tokens + logprobs into the same TaskState the chat path uses, so
+        finalize() (and miles' loss) is unchanged. See add_completion_round."""
+        request_data = await request.json()
+        prompt = request_data.get("prompt", "")
+        if isinstance(prompt, list):
+            # OpenAI permits a list of prompts; the DeepResearch agent always
+            # sends a single string. Defensively take the first.
+            prompt = prompt[0] if prompt else ""
+
+        auth = request.headers.get("Authorization", "")
+        task_id = auth.replace("Bearer ", "")
+
+        if task_id not in self.tasks:
+            self.tasks[task_id] = TaskState(
+                new_line_token_id=self.new_line_token_id,
+                assistant_prefix_ids=self.assistant_prefix_ids,
+                im_end_token_id=self.im_end_token_id,
+            )
+            # No ChatConverter: completions needs no message-diff-by-template.
+        state = self.tasks[task_id]
+
+        stop = request_data.get("stop") or list(QWEN_STOP_STRINGS)
+        if isinstance(stop, str):
+            stop = [stop]
+
+        # Tokenize the prompt EXACTLY as the agent does (qwen35_agent._tokenize:
+        # encode(prompt, add_special_tokens=False)) so the recorded prefix lines
+        # up with the agent's view; the append-only canary catches any drift.
+        # CPU-bound → run off the event loop.
+        prompt_ids = await asyncio.to_thread(
+            self.tokenizer.encode, prompt, add_special_tokens=False
+        )
+
+        sampling_params = {"stop": stop}
+        if "temperature" in request_data:
+            sampling_params["temperature"] = request_data["temperature"]
+        if "top_p" in request_data:
+            sampling_params["top_p"] = request_data["top_p"]
+        max_new_tokens = request_data.get("max_tokens", 4096)
+
+        generate_payload = {
+            "input_ids": prompt_ids,
+            "sampling_params": {**sampling_params, "max_new_tokens": max_new_tokens},
+            "return_logprob": True,
+            "return_routed_experts": getattr(
+                self.args, "use_rollout_routing_replay", False
+            ),
+            "pre_recorded_experts_length": state.get_routed_experts_length(),
+        }
+
+        logger.debug(
+            f"[TITO-DEBUG] task={task_id} /completions → /generate "
+            f"input_ids_len={len(prompt_ids)} "
+            f"sampling_params={generate_payload['sampling_params']}"
+        )
+
+        async with httpx.AsyncClient(timeout=600.0) as client:
+            resp = await client.post(
+                f"{self.sglang_base_url}/generate", json=generate_payload
+            )
+            output = resp.json()
+
+        if "text" not in output:
+            error_msg = output.get("error", output)
+            logger.warning(f"[TITO] SGLang error (/completions) for {task_id}: {error_msg}")
+            # Plain 500 — deliberately NOT a 400/404 "not supported" body, which
+            # would trip the agent's /chat/completions fallback and bypass capture.
+            return JSONResponse(
+                content={"error": {"message": str(error_msg), "type": "server_error"}},
+                status_code=500,
+            )
+
+        text, output_ids, output_logprobs, routed_experts = self._extract_generation(output)
+        output_ids, output_logprobs, routed_experts, text = self._truncate_at_stop(
+            output_ids, output_logprobs, routed_experts, stop
+        )
+
+        state.add_completion_round(prompt_ids, output_ids, output_logprobs, routed_experts)
+
+        completion_response = {
+            "object": "text_completion",
+            "model": request_data.get("model", "tito"),
+            "choices": [
+                {"index": 0, "text": text, "finish_reason": "stop", "logprobs": None}
+            ],
+        }
+
+        async def _sse():
+            yield f"data: {json.dumps(completion_response)}\n\n"
+            yield "data: [DONE]\n\n"
+
+        return StreamingResponse(_sse(), media_type="text/event-stream")
+
     def get_task_result(self, task_id: str) -> dict:
         state = self.tasks.pop(task_id, None)
         self.converters.pop(task_id, None)
-        
+
         if state is None:
             logger.warning(f"No state found for task {task_id}")
             return None
-        
+
         return state.finalize()
+
+    def get_task_rounds(self, task_id: str) -> list[dict] | None:
+        """Per-round samples for the /completions (DeepResearch) path.
+
+        Pops the task state and returns one self-consistent (prompt, completion)
+        training sample per round (Strategy B). Returns None if the task made no
+        recorded calls, or [] if it used the chat path (no completion rounds);
+        callers fall back to message-retokenization in those cases.
+        """
+        state = self.tasks.pop(task_id, None)
+        self.converters.pop(task_id, None)
+
+        if state is None:
+            logger.warning(f"No state found for task {task_id}")
+            return None
+
+        return state.finalize_rounds()
 
