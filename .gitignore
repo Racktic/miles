@@ -194,3 +194,9 @@ _examples_synced/
 .DS_Store
 
 .humanize/
+
+# alchemy/arc experiment logs, trajectories, big assets (not for git)
+examples/alchemy/logs/
+examples/arc_agi3/logs/
+examples/*/assets/*.pdf
+*.sif

@@ -42,7 +42,14 @@ def monkey_patch_torch_dist():
         if len(ranks) == 1:
             return group
 
-        group = ReloadableProcessGroup(group, ranks)
+        # Preserve the original timeout / pg_options so reload_process_groups can re-pass them.
+        # torch new_group(timeout=None) falls back to the 10-min NCCL default (NOT the default PG's
+        # configured timeout), so without this, reloaded (colocate) groups silently revert to 10 min and
+        # ignore --distributed-timeout-minutes -> spurious watchdog timeouts on slow steps. (signature:
+        # new_group(ranks=0, timeout=1, backend=2, pg_options=3, ...))
+        timeout = kwargs.get("timeout", args[1] if len(args) >= 2 else None)
+        pg_options = kwargs.get("pg_options", args[3] if len(args) >= 4 else None)
+        group = ReloadableProcessGroup(group, ranks, timeout=timeout, pg_options=pg_options)
         return group
 
     dist.new_group = new_group
@@ -112,7 +119,7 @@ def monkey_patch_torch_dist():
 class ReloadableProcessGroup(torch.distributed.ProcessGroup):
     GROUPS = {}
 
-    def __init__(self, group, ranks):
+    def __init__(self, group, ranks, timeout=None, pg_options=None):
         super().__init__(
             rank=dist.get_rank(group),
             size=dist.get_world_size(group),
@@ -120,6 +127,8 @@ class ReloadableProcessGroup(torch.distributed.ProcessGroup):
         self.group = group
         self.group_info = {
             "ranks": ranks,
+            "timeout": timeout,        # preserve so reload re-passes it (see monkey_patch note)
+            "pg_options": pg_options,
         }
         pid = os.getpid()
         if pid not in ReloadableProcessGroup.GROUPS:
@@ -155,7 +164,15 @@ class ReloadableProcessGroup(torch.distributed.ProcessGroup):
         for reloadable_group in reloadable_groups:
             if reloadable_group.group is not None:
                 continue
-            group = old_new_group(ranks=reloadable_group.group_info["ranks"], backend="nccl")
+            info = reloadable_group.group_info
+            kw = {"ranks": info["ranks"], "backend": "nccl"}
+            # re-pass the original timeout/pg_options; otherwise new_group(timeout=None) reverts to the
+            # 10-min NCCL default and silently ignores --distributed-timeout-minutes.
+            if info.get("timeout") is not None:
+                kw["timeout"] = info["timeout"]
+            if info.get("pg_options") is not None:
+                kw["pg_options"] = info["pg_options"]
+            group = old_new_group(**kw)
             reloadable_group.group = group
 
     def rank(self) -> int:

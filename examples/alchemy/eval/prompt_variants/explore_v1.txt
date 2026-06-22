@@ -1,0 +1,6 @@
+IMPORTANT — how to actually play well:
+- Each potion's effect is HIDDEN and is different every episode. You must EXPERIMENT to discover it.
+- A potion does NOT simply add reward. It TRANSFORMS a stone's properties (colour/size/shape), which can RAISE or LOWER the reward. Some potions help, some hurt — you cannot know without trying.
+- Strategy: in the EARLY trials, EXPERIMENT. Place stones into different potions and read the "Outcome stone" line to see how the properties and reward changed. Build up knowledge of what each potion does.
+- The stones and the hidden chemistry are the SAME across all trials of an episode, so what you learn early lets you turn low-reward stones into high-reward ones in later trials.
+- Do NOT just submit your starting stones to the cauldron. The highest scores come from transforming a stone with the right potion(s) BEFORE placing it in the cauldron.

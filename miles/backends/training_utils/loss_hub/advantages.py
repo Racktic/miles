@@ -29,10 +29,22 @@ def compute_advantages(
         (advantages, returns) — both lists of tensors, one per sample.
     """
     if args.advantage_estimator in ["grpo", "gspo"]:
-        rewards = torch.tensor(rewards, dtype=torch.float32, device=kl[0].device)
-        returns = get_grpo_returns(rewards, kl)
-        # TODO: is the copy necessary?
-        advantages = [r for r in returns]
+        if rewards and isinstance(rewards[0], (list, tuple)):
+            # Per-token (segment-level) advantages already computed by the custom reward hook
+            # (e.g. no-memory: one episode = one sequence, each trial segment gets its own
+            # (group, trial_pos)-normalized advantage). Use them as-is instead of broadcasting a
+            # per-sample scalar. Backward-compatible: scalar rewards fall through to the else branch.
+            returns = [torch.tensor(r, dtype=torch.float32, device=kl[i].device)
+                       for i, r in enumerate(rewards)]
+            assert all(len(returns[i]) == len(kl[i]) for i in range(len(returns))), (
+                "per-token advantage length must equal per-sample token length "
+                f"({[len(r) for r in returns][:3]} vs {[len(k) for k in kl][:3]})")
+            advantages = [r for r in returns]
+        else:
+            rewards = torch.tensor(rewards, dtype=torch.float32, device=kl[0].device)
+            returns = get_grpo_returns(rewards, kl)
+            # TODO: is the copy necessary?
+            advantages = [r for r in returns]
 
     elif args.advantage_estimator == "ppo":
         old_rewards = rewards

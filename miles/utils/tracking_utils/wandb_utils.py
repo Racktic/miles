@@ -60,9 +60,13 @@ def init_wandb_primary(args):
         "entity": args.wandb_team,
         "project": args.wandb_project,
         "group": group,
-        "name": run_name,
         "config": _compute_config_for_logging(args),
     }
+    if args.wandb_run_id:
+        init_kwargs["id"] = args.wandb_run_id
+        init_kwargs["resume"] = "allow"
+    else:
+        init_kwargs["name"] = run_name
 
     # Configure settings based on offline/online mode
     if offline:

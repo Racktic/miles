@@ -1,0 +1,12 @@
+{"prompt": [{"role": "user", "content": [{"type": "text", "text": "Symbolic Alchemy, prebuilt episode 0."}]}], "metadata": {"episode_index": 0, "max_steps_per_trial": 20, "rewrite_granularity": "trial"}}
+{"prompt": [{"role": "user", "content": [{"type": "text", "text": "Symbolic Alchemy, prebuilt episode 1."}]}], "metadata": {"episode_index": 1, "max_steps_per_trial": 20, "rewrite_granularity": "trial"}}
+{"prompt": [{"role": "user", "content": [{"type": "text", "text": "Symbolic Alchemy, prebuilt episode 2."}]}], "metadata": {"episode_index": 2, "max_steps_per_trial": 20, "rewrite_granularity": "trial"}}
+{"prompt": [{"role": "user", "content": [{"type": "text", "text": "Symbolic Alchemy, prebuilt episode 3."}]}], "metadata": {"episode_index": 3, "max_steps_per_trial": 20, "rewrite_granularity": "trial"}}
+{"prompt": [{"role": "user", "content": [{"type": "text", "text": "Symbolic Alchemy, prebuilt episode 6."}]}], "metadata": {"episode_index": 6, "max_steps_per_trial": 20, "rewrite_granularity": "trial"}}
+{"prompt": [{"role": "user", "content": [{"type": "text", "text": "Symbolic Alchemy, prebuilt episode 7."}]}], "metadata": {"episode_index": 7, "max_steps_per_trial": 20, "rewrite_granularity": "trial"}}
+{"prompt": [{"role": "user", "content": [{"type": "text", "text": "Symbolic Alchemy, prebuilt episode 9."}]}], "metadata": {"episode_index": 9, "max_steps_per_trial": 20, "rewrite_granularity": "trial"}}
+{"prompt": [{"role": "user", "content": [{"type": "text", "text": "Symbolic Alchemy, prebuilt episode 10."}]}], "metadata": {"episode_index": 10, "max_steps_per_trial": 20, "rewrite_granularity": "trial"}}
+{"prompt": [{"role": "user", "content": [{"type": "text", "text": "Symbolic Alchemy, prebuilt episode 13."}]}], "metadata": {"episode_index": 13, "max_steps_per_trial": 20, "rewrite_granularity": "trial"}}
+{"prompt": [{"role": "user", "content": [{"type": "text", "text": "Symbolic Alchemy, prebuilt episode 14."}]}], "metadata": {"episode_index": 14, "max_steps_per_trial": 20, "rewrite_granularity": "trial"}}
+{"prompt": [{"role": "user", "content": [{"type": "text", "text": "Symbolic Alchemy, prebuilt episode 15."}]}], "metadata": {"episode_index": 15, "max_steps_per_trial": 20, "rewrite_granularity": "trial"}}
+{"prompt": [{"role": "user", "content": [{"type": "text", "text": "Symbolic Alchemy, prebuilt episode 16."}]}], "metadata": {"episode_index": 16, "max_steps_per_trial": 20, "rewrite_granularity": "trial"}}

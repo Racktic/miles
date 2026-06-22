@@ -48,7 +48,7 @@ class WandbBackend(TrackingBackend):
     def log(self, metrics: dict[str, Any], step: int | None = None) -> None:
         import wandb
 
-        wandb.log(metrics)
+        wandb.log(metrics, step=step)
 
     def finish(self) -> None:
         import wandb

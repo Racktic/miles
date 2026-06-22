@@ -1,0 +1,25 @@
+# Merged onto `args` via --custom-config-path (miles/utils/arguments.py).
+# max_turns = max decision steps (ACT->REWRITE turns) per episode. The Alchemy rollout also caps
+# itself at num_trials * max_steps_per_trial (from each row's metadata); whichever is smaller wins.
+# Real game = 10 trials x 20 steps/trial = 200 turns (the TMLR-aligned budget). This is the hard cap;
+# episodes end earlier when stones run out (Qwen eval: 23-110 turns/ep, mean ~66, since trials end early).
+max_turns: 200
+# Qwen3.5 long-CoT thinking OFF: keeps ACT/REWRITE responses short + parseable (same as ARC).
+arc_enable_thinking: false
+
+# --- writing-memory reward knobs (per-trial branch; read via getattr(args, ...) in alchemy_rollout) ---
+wm_gprime: 4            # G' candidate summaries per KEPT REWRITE point (the WRITE GRPO group)
+wm_fk_cap: 12          # cap |F_k| (transitions scored per candidate summary)
+wm_min_fk: 3           # a boundary is "valid" only if |F_k| >= this (else too sparse to score)
+wm_rewrite_keep: 3     # DEFER+K: per episode, train WRITE on only this many RANDOM valid boundaries
+                       # (online still makes 1 carry-forward summary per boundary for ACT; the G'-1 extra
+                       #  candidates + F_k scoring happen post-episode ONLY for the kept boundaries)
+wm_gen_max_tokens: 384 # max tokens for the reason-then-answer accuracy generation
+wm_summary_mode: replace  # eval-aligned: memory is the sole cross-trial carrier (history reset each trial)
+
+# --- training-stream ablations ---
+# Defaults keep the normal joint ACT+WRITE training. The run script can override these in Ray workers with:
+#   ALCHEMY_TRAIN_ACT=0    # WRITE-only
+#   ALCHEMY_TRAIN_WRITE=0  # ACT-only
+train_act: true
+train_write: true
