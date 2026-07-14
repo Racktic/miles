@@ -95,6 +95,32 @@ rollout,更新时点在 resume 之后,重捕获拿到的就是新地址。代价
 capture(数十秒量级,相对 27-63min 的 rollout 可忽略);风险点:#27140 评审区提过反复重捕获
 的 graph 内存池回收问题,需盯 avail mem 日志。
 
+## 四·六、金丝雀判决记录(2026-07-14,worktree 分支 fix/sglang-recapture-cudagraph)
+
+### 金丝雀 #1:recapture 补丁(#27140 移植版)—— **无效,#27140 机制排除**
+- run `swecl-4b-recapture-lr0`(lr=0,2 rollout,seq24576):补丁在 8 引擎、全部 6 次同步
+  正确触发(时序核实:onload_weights → 149 次张量传输 → onload_kv 内部 KV 恢复后重捕获);
+- 结果:rollout_0 ACT 0.2216(89/160 成功)→ rollout_1 ACT **0.0000**(0/160);
+- **逐项病理对照(vs 无补丁金丝雀)完全一致**:有命令率 68%→65%,无块空回复 1797→1684,
+  多块 182→257,烧满 40 轮 95%→84% —— 统计噪声级差异,补丁零效果。
+- **新推论(重要)**:rollout_0 之前同样有完整 release→resume→同步周期(01:37 触发过重捕获)
+  且 rollout_0 健康 → "睡醒+同步"本身不毒;毒在 rollout_0 的 160 路重负载推理期间**在引擎内
+  积累**,并扛过了 flush+睡醒+重捕获。同时 eval-only(无睡醒,1036 episode 重负载)全程健康
+  → 毒的形成需要"重负载 + 睡醒"两个条件都在(顺序:负载在前,睡醒在后)。
+
+### mamba cache 子树核查(进 SIF 逐行验证)
+- **#24954 缺失**(无 `mamba_value_donated`/`_execute_deferred_mamba_cow`):overlap scheduler
+  下未等 copy_done 就快照 ping-pong buffer,污染态写进 radix cache 被后续请求复用;
+- **#26941 缺失**(memory_pool.py 无 null-out 修复):req 上残留 ping-pong 引用使 alloc-skip
+  误判,**已释放的槽位张量被新请求静默复用**(递归状态跨请求串染)+ 槽泄漏;
+- 我们构建 ping-pong 机制**激活**:memory_pool.py:513
+  `mamba_ping_pong_track_buffer_size = 2 if enable_overlap_schedule else 1`,:592 正是
+  #26941 指认的 `if req.mamba_ping_pong_track_buffer is None` alloc-skip 检查。
+
+### 金丝雀 #2:`--sglang-disable-cuda-graph`(跑中,run `swecl-4b-nograph-lr0`)
+判别:恢复健康 → graph 有罪但 recapture 覆盖不到;照崩 → graph 全线无罪,转 mamba cache 子树。
+备用:金丝雀 #3 `--sglang-disable-radix-cache`、#4 `--sglang-disable-overlap-schedule`(已备好)。
+
 ## 五、行动方案
 
 1. **确诊金丝雀(待批)**:lr=0 + `--sglang-disable-cuda-graph`,2 rollout。rollout_1 恢复健康
