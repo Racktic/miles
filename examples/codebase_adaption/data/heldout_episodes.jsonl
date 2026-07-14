@@ -1,0 +1,5 @@
+{"prompt": [{"role": "user", "content": [{"type": "text", "text": "Codebase adaptation heldout episode seed 0."}]}], "metadata": {"split": "heldout", "order_rank": 0}}
+{"prompt": [{"role": "user", "content": [{"type": "text", "text": "Codebase adaptation heldout episode seed 1."}]}], "metadata": {"split": "heldout", "order_rank": 1}}
+{"prompt": [{"role": "user", "content": [{"type": "text", "text": "Codebase adaptation heldout episode seed 2."}]}], "metadata": {"split": "heldout", "order_rank": 2}}
+{"prompt": [{"role": "user", "content": [{"type": "text", "text": "Codebase adaptation heldout episode seed 3."}]}], "metadata": {"split": "heldout", "order_rank": 3}}
+{"prompt": [{"role": "user", "content": [{"type": "text", "text": "Codebase adaptation heldout episode seed 4."}]}], "metadata": {"split": "heldout", "order_rank": 4}}

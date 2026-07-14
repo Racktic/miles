@@ -19,6 +19,10 @@ from collections import defaultdict
 def _group_key(sample):
     md = sample.metadata or {}
     if md.get("phase") == "write":
+        # signal 3 (downstream): whiten across siblings by (group_index, downstream_trial_pos), tagged in the
+        # rollout only when write_reward_signal=="downstream". Default (transition_acc): (episode_id, rewrite_idx).
+        if md.get("downstream_trial_pos") is not None:
+            return ("write", sample.group_index, md.get("downstream_trial_pos"))
         return ("write", md.get("episode_id"), md.get("rewrite_idx"))
     return ("act", sample.group_index, md.get("trial_pos"))
 
@@ -94,6 +98,37 @@ def reward_post_process(args, samples):
             denom = (var ** 0.5) + 1e-6
         for i in idxs:
             advantages[i] = (raw_rewards[i] - mean) / denom
+
+    # ACT exploration shaping (additive, guarded): act_adv += beta * explore_adv, where explore_adv is the
+    # explore_score standardized within the SAME (group_index, trial_pos) ACT groups. raw_rewards stay = task
+    # score (all existing metrics untouched). beta=0 (default) -> no-op. Samples without explore_score (judge
+    # degraded / disabled) contribute 0; groups with <2 present scores are skipped.
+    beta = float(getattr(args, "act_explore_beta", 0.0) or 0.0)
+    explore_mean = explored_n = 0.0
+    if beta > 0:
+        exp_groups: dict = defaultdict(list)
+        for i, s in enumerate(samples):
+            md = s.metadata or {}
+            if md.get("phase") != "write" and md.get("explore_score") is not None:
+                exp_groups[_group_key(s)].append(i)
+        for _key, idxs in exp_groups.items():
+            vals = [float((samples[i].metadata or {}).get("explore_score")) for i in idxs]
+            n = len(vals)
+            if n < 2:
+                continue
+            mean = sum(vals) / n
+            denom = 1.0
+            if std_norm:
+                var = sum((v - mean) ** 2 for v in vals) / n
+                denom = (var ** 0.5) + 1e-6
+            for i in idxs:
+                ev = float((samples[i].metadata or {}).get("explore_score"))
+                advantages[i] += beta * (ev - mean) / denom
+                explore_mean += ev
+                explored_n += 1
+        if explored_n:
+            print(f"[alchemy_advantage] explore beta={beta} tagged_act={int(explored_n)} "
+                  f"mean_explore_score={explore_mean / explored_n:.3f}", flush=True)
 
     # lightweight logging: mean raw reward per stream
     act_r = [raw_rewards[i] for i, s in enumerate(samples) if (s.metadata or {}).get("phase") != "write"]

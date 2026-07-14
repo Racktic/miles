@@ -41,6 +41,10 @@ for iterdir in "$CKPT_DIR"/iter_*/; do
   [ -d "$iterdir" ] || continue
   iter=$(basename "$iterdir")
   iternum=$((10#$(echo "$iter" | sed 's/iter_//')))
+  if [ -n "${ALCHEMY_EXPORT_ONLY_OLDER_THAN_LATEST:-}" ] && [ -n "$latest" ] && [ "$iternum" -gt "$latest" ]; then
+    echo "[skip] $iter > latest($latest), likely an in-progress/future checkpoint"
+    continue
+  fi
   if [ "$iternum" = "$latest" ] && [ "$INCLUDE_LATEST" = 0 ]; then
     echo "[skip] $iter = latest($latest) 是 resume 点,默认保护(用 --include-latest 强制导出)"; continue
   fi

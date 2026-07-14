@@ -124,8 +124,15 @@ def build_eval_system(prior_info: bool = False) -> str:
 
 
 def build_training_system(prior_info: bool = False) -> str:
-    """Eval-aligned system prompt plus the Qwen3-4B exploration hint used for RL rollouts."""
-    return build_eval_system(prior_info=prior_info) + "\n\n" + TRAINING_EXPLORATION_HINT
+    """Eval-aligned system prompt plus the Qwen3-4B exploration hint used for RL rollouts.
+    ALCHEMY_EXPLORE_HINT_FILE (if set to a readable file) overrides the hint text — keeps the hint
+    parametrized / non-invasive (default unset -> TRAINING_EXPLORATION_HINT, byte-identical to before)."""
+    hint = TRAINING_EXPLORATION_HINT
+    _hf = os.environ.get("ALCHEMY_EXPLORE_HINT_FILE")
+    if _hf and os.path.isfile(_hf):
+        with open(_hf) as f:
+            hint = f.read().strip()
+    return build_eval_system(prior_info=prior_info) + "\n\n" + hint
 
 
 EVAL_SYSTEM = build_eval_system(prior_info=False)  # default = no prior information
@@ -166,6 +173,12 @@ def render_game_state(obs: dict, last: dict | None = None, first_turn: bool = Fa
     for p in d["potions"]:                       # all 12 slots; used ones -> None (keeps indices)
         lines.append(f"{p['idx']}: {_potion_desc(p['type']) if p['exists'] else 'None'}")
     lines.append(f"Current trial score: {int(round(obs.get('trial_score', 0.0)))}")
+    # Optional per-trial turn budget line (gated, default off -> output byte-identical to before).
+    # ALCHEMY_SHOW_BUDGET=1 enables it; uses obs['step'] (steps taken this trial) + obs['max_steps'].
+    if os.environ.get("ALCHEMY_SHOW_BUDGET") and obs.get("max_steps"):
+        used, cap = int(obs.get("step", 0)), int(obs["max_steps"])
+        left = cap - used
+        lines.append(f"Turn {used + 1}/{cap} this trial — {left} turn{'s' if left != 1 else ''} left.")
     return "\n".join(lines)
 
 

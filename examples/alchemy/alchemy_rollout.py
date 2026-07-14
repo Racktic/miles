@@ -26,6 +26,7 @@ from miles.utils.http_utils import post
 from miles.utils.mask_utils import MultiTurnLossMaskGenerator
 from miles.utils.types import Sample
 
+from examples.alchemy.alchemy_judge import judge_explore
 from examples.alchemy.env_alchemy import (
     AlchemyTextEnv,
     _potion_desc,
@@ -118,6 +119,67 @@ def _pack_act_sample(state, seed, system, trial_messages, trial_pos):
         metadata={"phase": "act", "trial_pos": trial_pos})
 
 
+def _copy_messages(messages: list) -> list:
+    return [{"role": m.get("role"), "content": m.get("content", "")} for m in messages]
+
+
+def _build_rewrite_messages(
+    *,
+    freeform: bool,
+    summary_text: str | None,
+    memory_history: list[dict],
+    trial_history: list[dict],
+    current_trial_idx: int,
+    current_trial_messages: list,
+    memory_window_size: int,
+) -> tuple[list, str]:
+    """Build the WRITE prompt.
+
+    `memory_window_size=1` intentionally preserves the old prompt exactly: current trial transcript plus
+    one previous summary in the final instruction. Larger windows expose the last K trial transcripts and
+    last K memory snapshots so the writer can recover from lossy previous summaries.
+    """
+    base_instr = SUMMARY_INSTRUCTION_FREEFORM if freeform else SUMMARY_INSTRUCTION
+    if memory_window_size <= 1:
+        instr = base_instr
+        if summary_text:
+            instr = f"Your previous summary:\n{summary_text}\n\n{instr}"
+        return ([{"role": "system", "content": SUMMARY_SYSTEM}] + current_trial_messages
+                + [{"role": "user", "content": instr}]), instr
+
+    window = max(1, int(memory_window_size))
+    recent_memories = memory_history[-window:]
+    recent_trials = (trial_history + [{
+        "trial_idx": current_trial_idx,
+        "messages": _copy_messages(current_trial_messages),
+    }])[-window:]
+
+    context_messages = [{"role": "system", "content": SUMMARY_SYSTEM}]
+    for t in recent_trials:
+        context_messages.append({
+            "role": "user",
+            "content": f"[Recent trial transcript: trial {t['trial_idx']}]\n"
+                       f"Use this as evidence when updating the episode memory.",
+        })
+        context_messages.extend(_copy_messages(t["messages"]))
+
+    mem_block = ""
+    if recent_memories:
+        parts = []
+        for m in recent_memories:
+            parts.append(f"[Memory after trial {m['trial_idx']}]\n{m['summary']}")
+        mem_block = "Recent memory snapshots (oldest to newest):\n\n" + "\n\n".join(parts) + "\n\n"
+
+    instr = (
+        f"{mem_block}"
+        f"Update the running memory using the recent memory snapshots and recent trial transcripts above. "
+        f"Carry forward confirmed facts, recover any useful details that were lost, and incorporate the "
+        f"newest trial evidence.\n\n"
+        f"{base_instr}"
+    )
+    return context_messages + [{"role": "user", "content": instr}], instr
+
+
 def _classify_action(desc: str) -> str:
     text = (desc or "").lower()
     if "potion" in text:
@@ -134,8 +196,11 @@ def _episode_stats(traj: list, per_trial_scores: list, write_audit: list) -> dic
     invalid = 0
     valid_total = 0
     action_counts = {"potion": 0, "cauldron": 0, "end_trial": 0, "other": 0}
+    turns_per_trial: dict = {}                       # trial idx -> #turns (all turns, matches offline turn plot)
     for rec in traj:
         attempted += 1
+        _tk = int(rec.get("trial", 0))
+        turns_per_trial[_tk] = turns_per_trial.get(_tk, 0) + 1
         if not rec.get("valid"):
             invalid += 1
             continue
@@ -155,6 +220,7 @@ def _episode_stats(traj: list, per_trial_scores: list, write_audit: list) -> dic
             "zero_potion": action_counts["potion"] == 0,
         },
         "per_trial_scores": [float(x) for x in per_trial_scores],
+        "turns_per_trial": {str(k): int(v) for k, v in sorted(turns_per_trial.items())},
         "write": {
             "total": len(write_audit),
             "kept": kept,
@@ -193,6 +259,40 @@ def _parse_stone(text):
     return feats, (int(rm.group(1)) if rm else None)
 
 DEFAULT_LEVEL = "alchemy/perceptual_mapping_randomized_with_rotation_and_random_bottleneck"
+_ORACLE_CACHE: dict[str, list[float]] | None = None
+
+
+def _oracle_cache_path() -> str:
+    env_path = os.environ.get("ALCHEMY_ORACLE_CACHE")
+    if env_path:
+        return env_path
+    return os.path.join(os.path.dirname(__file__), "eval", "oracle_cache.json")
+
+
+def _load_oracle_cache() -> dict[str, list[float]]:
+    global _ORACLE_CACHE
+    if _ORACLE_CACHE is None:
+        with open(_oracle_cache_path()) as f:
+            _ORACLE_CACHE = json.load(f)
+    return _ORACLE_CACHE
+
+
+def _oracle_norm_score(episode_index, trial_pos: int, raw_score: float) -> float | None:
+    if episode_index is None:
+        raise ValueError("downstream_norm_improve requires fixed episode_index for oracle normalization")
+    oracle_scores = _load_oracle_cache().get(str(int(episode_index)))
+    if not oracle_scores:
+        raise ValueError(f"Missing oracle scores for episode_index={episode_index}")
+    trial_pos = int(trial_pos)
+    if trial_pos < 0 or trial_pos >= len(oracle_scores):
+        raise ValueError(
+            f"Oracle trial index out of range: episode_index={episode_index}, trial_pos={trial_pos}, "
+            f"n_oracle_trials={len(oracle_scores)}"
+        )
+    denom = float(oracle_scores[trial_pos])
+    if denom <= 0:
+        return None
+    return float(raw_score) / denom
 
 
 def _safe_path_part(value) -> str:
@@ -496,9 +596,31 @@ async def _generate_trial(input: GenerateFnInput) -> GenerateFnOutput:
     min_fk = int(getattr(args, "wm_min_fk", 3))
     keep_k = int(getattr(args, "wm_rewrite_keep", 3))   # DEFER: train WRITE on only K random valid boundaries
     summary_mode = getattr(args, "wm_summary_mode", "replace")
+    memory_window_size = max(1, int(os.environ.get("ALCHEMY_MEMORY_WINDOW_SIZE")
+                                    or getattr(args, "wm_memory_window_size", 1)))
     freeform = os.environ.get("ALCHEMY_FREEFORM", "0") == "1"   # free-form memory: drop fixed two-section structure
     train_act = _bool_flag(args, "train_act", True)
     train_write = _bool_flag(args, "train_write", True)
+    write_signal = os.environ.get("ALCHEMY_WRITE_SIGNAL") or getattr(args, "write_reward_signal", "transition_acc")
+    # ACT exploration shaping: explore_reward_k = Judge(M_{k-1}, M_k) added at the ADVANTAGE level in
+    # alchemy_advantage (act_adv += beta * explore_adv). beta=0 (default) -> no judge calls, no behavior change.
+    act_explore_beta = float(os.environ.get("ALCHEMY_ACT_EXPLORE_BETA")
+                             or getattr(args, "act_explore_beta", 0.0) or 0.0)
+    explore_enabled = (not input.evaluation) and act_explore_beta > 0
+    # downstream_norm_improve trial window: R(M_k) = mean(norm[k+1 .. k+K]) - mean(norm[k-K+1 .. k])
+    # (windows clipped to the episode; oracle<=0 trials dropped from the mean). K=1 (default) is
+    # byte-identical to the original single-trial difference norm[k+1] - norm[k]. Only affects
+    # write_signal == "downstream_norm_improve"; whitening key (downstream_trial_pos=k+1) unchanged.
+    write_improve_k = max(1, int(os.environ.get("ALCHEMY_WRITE_IMPROVE_K")
+                                 or getattr(args, "write_improve_k", 1) or 1))
+    # k=0(第一条记忆 M_0)的 WRITE 奖励模式,仅作用于 write_signal == "downstream_norm_improve":
+    #   improve(默认)  R(M_0) = mean(norm[1..K]) - norm[0]      —— 现行为,逐字节不变
+    #   downstream      R(M_0) = mean(norm[1..K])                —— 去掉 -norm0 项(不再为烂第一局付费)
+    #   skip            k=0 不训 WRITE(不产生样本,audit 记 k0_skipped);其余 k 一律不变
+    write_k0_mode = (os.environ.get("ALCHEMY_WRITE_K0_MODE")
+                     or getattr(args, "write_k0_mode", "improve") or "improve").strip().lower()
+    if write_k0_mode not in ("improve", "downstream", "skip"):
+        raise ValueError(f"ALCHEMY_WRITE_K0_MODE must be improve|downstream|skip, got {write_k0_mode!r}")
     if not input.evaluation and not train_act and not train_write:
         raise ValueError("At least one Alchemy training stream must be enabled: train_act or train_write")
     system = EVAL_SYSTEM   # no-prior eval system prompt (MAIN_PROMPT + FORMAT_BLOCK)
@@ -527,6 +649,8 @@ async def _generate_trial(input: GenerateFnInput) -> GenerateFnOutput:
     trial_messages: list = []    # current trial's turns only -> input to the summary REWRITE
     summary_text = None          # carried memory/summary (None before trial 0's first rewrite)
     summaries: list = []         # carried summary after each boundary (mirrors eval traj)
+    memory_history: list = []    # previous carry-forward summaries: {trial_idx, summary}
+    trial_history: list = []     # completed trial transcripts: {trial_idx, messages}
     last = None
     first = True
     first_of_trial = True
@@ -584,11 +708,15 @@ async def _generate_trial(input: GenerateFnInput) -> GenerateFnOutput:
                     act_s = _pack_act_sample(state, seed, system, trial_messages, k)
                     if act_s is not None:
                         act_by_trial[k].append(act_s)
-                instr = SUMMARY_INSTRUCTION_FREEFORM if freeform else SUMMARY_INSTRUCTION
-                if summary_text:
-                    instr = f"Your previous summary:\n{summary_text}\n\n{instr}"
-                rw_msgs = ([{"role": "system", "content": SUMMARY_SYSTEM}] + trial_messages
-                           + [{"role": "user", "content": instr}])
+                rw_msgs, instr = _build_rewrite_messages(
+                    freeform=freeform,
+                    summary_text=summary_text,
+                    memory_history=memory_history,
+                    trial_history=trial_history,
+                    current_trial_idx=k,
+                    current_trial_messages=trial_messages,
+                    memory_window_size=memory_window_size,
+                )
                 rw_ids = _encode_prompt(state, rw_msgs)
                 cf_text, cf_ids, cf_lp, cf_fin = await _infer(url, rw_ids, sampling_params)
                 if cf_ids:
@@ -597,13 +725,17 @@ async def _generate_trial(input: GenerateFnInput) -> GenerateFnOutput:
                                        response_length=len(cf_ids), loss_mask=[1] * len(cf_ids),
                                        rollout_log_probs=cf_lp,
                                        status=_STATUS_BY_FINISH.get(cf_fin, Sample.Status.COMPLETED),
-                                       metadata={"phase": "write", "rewrite_idx": k})
+                                       metadata={"phase": "write", "rewrite_idx": k,
+                                                 "memory_window_size": memory_window_size})
                     cf_memory = _strip_special(cf_text) or (summary_text or "")
                     write_points.append({"rewrite_idx": k, "rw_ids": rw_ids, "instr": instr,
                                          "input_messages": rw_msgs, "carry_sample": cf_sample,
-                                         "carry_memory": cf_memory})
+                                         "carry_memory": cf_memory,
+                                         "memory_window_size": memory_window_size})
                     summary_text = cf_memory      # carry forward to the next trial's ACT
                     summaries.append(summary_text)
+                    memory_history.append({"trial_idx": k, "summary": summary_text})
+                trial_history.append({"trial_idx": k, "messages": _copy_messages(trial_messages)})
                 trial_messages = []
                 if summary_mode == "replace":              # memory is the sole cross-trial carrier
                     messages = []
@@ -630,6 +762,16 @@ async def _generate_trial(input: GenerateFnInput) -> GenerateFnOutput:
     write_audit: list = []
     n_trials_seen = max(act_by_trial) if act_by_trial else 0
 
+    # ACT exploration reward: judge M_{k-1}->M_k for each boundary (training only, beta>0). summaries[k]=M_k;
+    # M_{k-1}=summaries[k-1] ("" for k=0). Fire all judge calls concurrently; None on any failure -> trial k
+    # simply gets no explore_score (advantage hook falls back to task-only for that sample). Never blocks.
+    explore_by_trial: dict = {}    # trial k -> judge dict {new_discoveries,...,explore_score,brief_reason}
+    if explore_enabled and summaries:
+        ks = list(range(len(summaries)))
+        prevs = ["" if k == 0 else summaries[k - 1] for k in ks]
+        results = await asyncio.gather(*[judge_explore(prevs[i], summaries[k]) for i, k in enumerate(ks)])
+        explore_by_trial = {k: r for k, r in zip(ks, results) if r is not None}
+
     # ACT stream: reward = that trial's score (raw; oracle-norm cancels in the (episode,trial_pos) group)
     if input.evaluation or train_act:
         for k in range(n_trials_seen + 1):
@@ -637,6 +779,12 @@ async def _generate_trial(input: GenerateFnInput) -> GenerateFnOutput:
             for s in act_by_trial.get(k, []):
                 s.reward = r_act
                 s.metadata = {**meta, **s.metadata, "episode_id": episode_id}
+                if k in explore_by_trial:
+                    r = explore_by_trial[k]
+                    s.metadata["explore_score"] = r["explore_score"]   # used by the advantage hook
+                    s.metadata["explore_dims"] = {d: r[d] for d in    # monitored per-dimension in metrics
+                                                  ("new_discoveries", "error_correction",
+                                                   "verification_targets", "non_redundant_change")}
                 samples.append(s)
 
     if input.evaluation:
@@ -648,6 +796,7 @@ async def _generate_trial(input: GenerateFnInput) -> GenerateFnOutput:
             "group_index": seed.group_index, "index": seed.index, "granularity": "trial",
             "rollout_id": rollout_id, "eval_dataset_name": eval_dataset_name,
             "evaluation": True, "summary_mode": summary_mode, "system": system,
+            "memory_window_size": memory_window_size,
             "per_trial_scores": per_trial_scores, "num_turns": len(traj),
             "summaries": summaries, "write_audit": write_audit, "turns": traj,
         })
@@ -666,6 +815,7 @@ async def _generate_trial(input: GenerateFnInput) -> GenerateFnOutput:
             write_audit.append({"rewrite_idx": k, "n_fk": len(fk), "kept": False,
                                 "summary_input_messages": wp["input_messages"],
                                 "carried_output": wp["carry_sample"].response,
+                                "memory_window_size": wp.get("memory_window_size", memory_window_size),
                                 "disabled": True})
         ep_stats = _episode_stats(traj, per_trial_scores, write_audit)
         for s in samples:
@@ -676,8 +826,106 @@ async def _generate_trial(input: GenerateFnInput) -> GenerateFnOutput:
             "group_index": seed.group_index, "index": seed.index, "granularity": "trial",
             "rollout_id": rollout_id,
             "summary_mode": summary_mode, "system": system, "per_trial_scores": per_trial_scores,
+            "memory_window_size": memory_window_size,
             "num_turns": len(traj), "summaries": summaries, "write_audit": write_audit,
-            "train_act": train_act, "train_write": train_write, "turns": traj,
+            "train_act": train_act, "train_write": train_write, "act_explore": explore_by_trial, "turns": traj,
+        })
+        return GenerateFnOutput(samples=samples)
+
+    # ---- downstream WRITE signals ----
+    # carry-forward IS the only WRITE sample (no G' candidates). The reward is derived from the next trial
+    # score and whitened across siblings by (group_index, k+1) in the advantage hook via downstream_trial_pos.
+    # transition-acc is computed on the carry-forward ONLY as a monitor.
+    if write_signal in ("downstream", "downstream_improve", "downstream_norm_improve"):
+        for wp in write_points:
+            k = wp["rewrite_idx"]
+            fk = boundary_fk[k]
+            cf = wp["carry_sample"]
+            if k == 0 and write_k0_mode == "skip" and write_signal == "downstream_norm_improve":
+                # k=0 不训 WRITE:M_0 照常写入/使用,只是不产生训练样本
+                write_audit.append({"rewrite_idx": k, "n_fk": len(fk), "kept": False,
+                                    "summary_input_messages": wp["input_messages"],
+                                    "carried_output": cf.response,
+                                    "memory_window_size": wp.get("memory_window_size", memory_window_size),
+                                    "k0_skipped": True})
+                continue
+            r_next = per_trial_scores[k + 1] if (k + 1) < len(per_trial_scores) else None
+            if r_next is None:                       # last trial's memory has no downstream trial -> not trained
+                write_audit.append({"rewrite_idx": k, "n_fk": len(fk), "kept": False,
+                                    "summary_input_messages": wp["input_messages"],
+                                    "carried_output": cf.response,
+                                    "memory_window_size": wp.get("memory_window_size", memory_window_size),
+                                    "no_downstream": True})
+                continue
+            if write_signal == "downstream_improve":  # signal 4: r_{k+1} - r_k (per-rollout temporal baseline)
+                r_prev = per_trial_scores[k] if k < len(per_trial_scores) else 0.0
+                r_down = r_next - r_prev
+            elif write_signal == "downstream_norm_improve":
+                # window K (write_improve_k): mean norm of the K trials after M_k vs the K trials up to k.
+                # K=1 reduces exactly to the original norm[k+1] - norm[k].
+                nxt = [_oracle_norm_score(episode_index, t, per_trial_scores[t])
+                       for t in range(k + 1, min(k + write_improve_k, len(per_trial_scores) - 1) + 1)]
+                prv = [_oracle_norm_score(episode_index, t, per_trial_scores[t])
+                       for t in range(max(0, k - write_improve_k + 1), k + 1)]
+                nxt = [x for x in nxt if x is not None]
+                prv = [x for x in prv if x is not None]
+                if k == 0 and write_k0_mode == "downstream":
+                    # k=0 特例:R(M_0) = mean(norm[1..K]),不减 norm0(低基数付费通道拆除)
+                    if not nxt:
+                        write_audit.append({
+                            "rewrite_idx": k, "n_fk": len(fk), "kept": False,
+                            "summary_input_messages": wp["input_messages"],
+                            "carried_output": cf.response,
+                            "memory_window_size": wp.get("memory_window_size", memory_window_size),
+                            "oracle_norm_skipped": True,
+                            "oracle_norm_next_valid": False,
+                            "oracle_norm_prev_valid": bool(prv),
+                        })
+                        continue
+                    r_down = sum(nxt) / len(nxt)
+                else:
+                    if not nxt or not prv:
+                        write_audit.append({
+                            "rewrite_idx": k, "n_fk": len(fk), "kept": False,
+                            "summary_input_messages": wp["input_messages"],
+                            "carried_output": cf.response,
+                            "memory_window_size": wp.get("memory_window_size", memory_window_size),
+                            "oracle_norm_skipped": True,
+                            "oracle_norm_next_valid": bool(nxt),
+                            "oracle_norm_prev_valid": bool(prv),
+                        })
+                        continue
+                    r_down = sum(nxt) / len(nxt) - sum(prv) / len(prv)
+            else:                                     # signal 3: r_{k+1} (absolute downstream score)
+                r_down = r_next
+            cf.reward = float(r_down)
+            cf.metadata = {**meta, **cf.metadata, "episode_id": episode_id, "downstream_trial_pos": k + 1}
+            samples.append(cf)
+            mon_acc = (await _score_memory_accuracy(state, url, greedy_params, wp["carry_memory"], fk)
+                       if len(fk) >= 1 else None)     # transition-acc as MONITOR only (carry-forward, not G')
+            write_audit.append({
+                "rewrite_idx": k, "n_fk": len(fk), "kept": True,
+                "fk": [{"stone": s, "potion": a, "result": dd, "reward": dr} for (s, a, dd, dr, _ch) in fk],
+                "summary_input_messages": wp["input_messages"],
+                "candidates": [cf.response], "carried_idx": 0,
+                "memory_window_size": wp.get("memory_window_size", memory_window_size),
+                "accs": ([mon_acc] if mon_acc is not None else []),
+                "downstream_reward": float(r_down),
+                **({"write_improve_k": write_improve_k} if write_improve_k != 1 else {}),
+                **({"write_k0_mode": write_k0_mode} if (k == 0 and write_k0_mode != "improve") else {}),
+            })
+        ep_stats = _episode_stats(traj, per_trial_scores, write_audit)
+        for s in samples:
+            s.metadata = {**(s.metadata or {}), "alchemy_episode_stats": ep_stats}
+        _write_trajectory({
+            "level_name": level_name, "episode_id": episode_id, **env_tag,
+            "group_index": seed.group_index, "index": seed.index, "granularity": "trial",
+            "rollout_id": rollout_id,
+            "summary_mode": summary_mode, "system": system, "per_trial_scores": per_trial_scores,
+            "memory_window_size": memory_window_size,
+            "num_turns": len(traj), "summaries": summaries, "write_audit": write_audit,
+            "train_act": train_act, "train_write": train_write, "write_signal": write_signal,
+            "act_explore": explore_by_trial, "turns": traj,
         })
         return GenerateFnOutput(samples=samples)
 
@@ -691,7 +939,8 @@ async def _generate_trial(input: GenerateFnInput) -> GenerateFnOutput:
             # process at this boundary -> always save it so every boundary is fully inspectable.
             write_audit.append({"rewrite_idx": k, "n_fk": len(fk), "kept": False,
                                 "summary_input_messages": wp["input_messages"],
-                                "carried_output": wp["carry_sample"].response})
+                                "carried_output": wp["carry_sample"].response,
+                                "memory_window_size": wp.get("memory_window_size", memory_window_size)})
             continue
         extra = await asyncio.gather(*[_infer(url, wp["rw_ids"], sampling_params)
                                        for _ in range(max(0, gprime - 1))])
@@ -705,7 +954,8 @@ async def _generate_trial(input: GenerateFnInput) -> GenerateFnOutput:
                           response_length=len(rw_ids2), loss_mask=[1] * len(rw_ids2),
                           rollout_log_probs=rw_lp,
                           status=_STATUS_BY_FINISH.get(rw_fin, Sample.Status.COMPLETED),
-                          metadata={"phase": "write", "rewrite_idx": k})
+                          metadata={"phase": "write", "rewrite_idx": k,
+                                    "memory_window_size": wp.get("memory_window_size", memory_window_size)})
             cand_samples.append(s_rw)
             cand_memories.append(_strip_special(rw_text) or wp["carry_memory"])
         accs = []
@@ -720,6 +970,7 @@ async def _generate_trial(input: GenerateFnInput) -> GenerateFnOutput:
             "fk": [{"stone": s, "potion": a, "result": dd, "reward": dr} for (s, a, dd, dr, _ch) in fk],
             "summary_input_messages": wp["input_messages"],
             "candidates": [s.response for s in cand_samples],
+            "memory_window_size": wp.get("memory_window_size", memory_window_size),
             "carried_idx": 0, "accs": accs,
         })
 
@@ -732,8 +983,9 @@ async def _generate_trial(input: GenerateFnInput) -> GenerateFnOutput:
         "group_index": seed.group_index, "index": seed.index, "granularity": "trial",
         "rollout_id": rollout_id,
         "summary_mode": summary_mode, "system": system, "per_trial_scores": per_trial_scores,
+        "memory_window_size": memory_window_size,
         "num_turns": len(traj), "summaries": summaries, "write_audit": write_audit,
-        "train_act": train_act, "train_write": train_write, "turns": traj,
+        "train_act": train_act, "train_write": train_write, "act_explore": explore_by_trial, "turns": traj,
     })
     return GenerateFnOutput(samples=samples)
 

@@ -188,7 +188,11 @@ def _grpo_metrics(samples: list[Sample]) -> dict[str, float]:
                 act_groups[(s.group_index, k)].append(float(v))
             continue
         if md.get("phase") == "write":
-            key = (md.get("episode_id"), md.get("rewrite_idx"))
+            # match the advantage hook's grouping: downstream signal -> (group_index, downstream_trial_pos)
+            if md.get("downstream_trial_pos") is not None:
+                key = (s.group_index, md.get("downstream_trial_pos"))
+            else:
+                key = (md.get("episode_id"), md.get("rewrite_idx"))
             write_groups[key].append(float(s.reward or 0.0))
         else:
             key = (s.group_index, md.get("trial_pos"))
@@ -219,6 +223,89 @@ def _response_metrics(samples: list[Sample]) -> dict[str, float]:
     }
 
 
+def _explore_metrics(samples: list[Sample]) -> dict[str, float]:
+    """ACT exploration-reward judge stats (only present when act_explore_beta>0). Purely additive: emitted
+    only when some ACT sample carries an explore_score, so default runs are unaffected. Tracks the combined
+    explore_score, each of the 4 judge dimensions, judge coverage, and the GRPO group zero-std fraction
+    (whether explore_score still varies within (group_index, trial_pos) groups -> can it give ACT gradient)."""
+    act = [s for s in samples if (s.metadata or {}).get("phase") != "write"]
+    scored = [s for s in act if (s.metadata or {}).get("explore_score") is not None]
+    if not scored:
+        return {}
+    vals = [float((s.metadata or {}).get("explore_score")) for s in scored]
+    out = {
+        "alchemy_explore/score_mean": _mean(vals),
+        "alchemy_explore/coverage": len(scored) / len(act) if act else 0.0,
+        "alchemy_explore/n": float(len(scored)),
+    }
+    for d in ("new_discoveries", "error_correction", "verification_targets", "non_redundant_change"):
+        dv = [float((s.metadata or {}).get("explore_dims", {}).get(d)) for s in scored
+              if (s.metadata or {}).get("explore_dims", {}).get(d) is not None]
+        if dv:
+            out[f"alchemy_explore/{d}_mean"] = _mean(dv)
+    # zero-std diagnostic over the SAME (group_index, trial_pos) ACT groups the advantage hook standardizes.
+    groups = defaultdict(list)
+    for s in scored:
+        groups[(s.group_index, (s.metadata or {}).get("trial_pos"))].append(
+            float((s.metadata or {}).get("explore_score")))
+    if groups:
+        out["alchemy_explore/group_zero_std_frac"] = (
+            sum(1 for g in groups.values() if _zero_std(g)) / len(groups))
+    return out
+
+
+def _improve_and_turn_metrics(samples: list[Sample]) -> dict[str, float]:
+    """Additive online metrics (match offline finalize.py / turn-plot defs), logged on rollout/step:
+      alchemy_online/improve_mean = mean over the rollout's episode INSTANCES of the oracle-normalized
+        improvement  mean(norm[5:]) - mean(norm[:5]),  norm[t] = score[t]/oracle[t];
+      alchemy_online/turns_trial{k} = mean #turns in trial k over instances.
+    Dedupe per instance by episode_id ('group_index:index'). Defensive: any error -> {} (never breaks logging)."""
+    try:
+        oc = getattr(_improve_and_turn_metrics, "_oracle", None)
+        if oc is None:
+            import os, json
+            try:
+                p = (os.environ.get("ALCHEMY_ORACLE_CACHE")
+                     or os.path.join(os.path.dirname(__file__), "eval", "oracle_cache.json"))
+                with open(p) as f:
+                    oc = json.load(f)
+            except Exception:
+                oc = {}
+            _improve_and_turn_metrics._oracle = oc
+        seen = {}
+        for s in samples:
+            md = s.metadata or {}
+            if md.get("phase") == "write":
+                continue
+            key = md.get("episode_id")
+            if key is None or key in seen:
+                continue
+            seen[key] = (md.get("episode_index"), md.get("alchemy_episode_stats") or {})
+        improves = []
+        turns_by_trial = defaultdict(list)
+        for epi, stats in seen.values():
+            pts = stats.get("per_trial_scores") or []
+            if epi is not None and pts:
+                oracle = oc.get(str(int(epi)))
+                if oracle:
+                    norm = [None if o <= 0 else a / o for a, o in zip(pts, oracle)]
+                    first = [x for x in norm[:5] if x is not None]
+                    last = [x for x in norm[5:] if x is not None]
+                    if first and last:
+                        improves.append(sum(last) / len(last) - sum(first) / len(first))
+            for k, v in (stats.get("turns_per_trial") or {}).items():
+                turns_by_trial[int(k)].append(float(v))
+        out = {}
+        if improves:
+            out["alchemy_score/improve_mean"] = _mean(improves)
+        for k, vs in sorted(turns_by_trial.items()):
+            if vs:
+                out[f"alchemy_online/turns_trial{k}"] = _mean(vs)
+        return out
+    except Exception:
+        return {}
+
+
 def _alchemy_metrics(samples: list[Sample]) -> dict[str, float]:
     out = {}
     out.update(_action_metrics(samples))
@@ -226,6 +313,8 @@ def _alchemy_metrics(samples: list[Sample]) -> dict[str, float]:
     out.update(_write_metrics(samples))
     out.update(_grpo_metrics(samples))
     out.update(_response_metrics(samples))
+    out.update(_explore_metrics(samples))
+    out.update(_improve_and_turn_metrics(samples))
     return out
 
 

@@ -1,0 +1,8 @@
+{"prompt": [{"role": "user", "content": [{"type": "text", "text": "ARC-AGI-3 game ar25-0c556536 (episode A)."}]}], "metadata": {"game_id": "ar25-0c556536", "max_actions": 50}}
+{"prompt": [{"role": "user", "content": [{"type": "text", "text": "ARC-AGI-3 game ar25-0c556536 (episode B)."}]}], "metadata": {"game_id": "ar25-0c556536", "max_actions": 50}}
+{"prompt": [{"role": "user", "content": [{"type": "text", "text": "ARC-AGI-3 game ar25-0c556536 (episode C)."}]}], "metadata": {"game_id": "ar25-0c556536", "max_actions": 50}}
+{"prompt": [{"role": "user", "content": [{"type": "text", "text": "ARC-AGI-3 game ar25-0c556536 (episode D)."}]}], "metadata": {"game_id": "ar25-0c556536", "max_actions": 50}}
+{"prompt": [{"role": "user", "content": [{"type": "text", "text": "ARC-AGI-3 game ar25-0c556536 (episode E)."}]}], "metadata": {"game_id": "ar25-0c556536", "max_actions": 50}}
+{"prompt": [{"role": "user", "content": [{"type": "text", "text": "ARC-AGI-3 game ar25-0c556536 (episode F)."}]}], "metadata": {"game_id": "ar25-0c556536", "max_actions": 50}}
+{"prompt": [{"role": "user", "content": [{"type": "text", "text": "ARC-AGI-3 game ar25-0c556536 (episode G)."}]}], "metadata": {"game_id": "ar25-0c556536", "max_actions": 50}}
+{"prompt": [{"role": "user", "content": [{"type": "text", "text": "ARC-AGI-3 game ar25-0c556536 (episode H)."}]}], "metadata": {"game_id": "ar25-0c556536", "max_actions": 50}}

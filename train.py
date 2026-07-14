@@ -1,4 +1,5 @@
 import asyncio
+import os
 
 from sglang.srt.constants import GPU_MEMORY_TYPE_CUDA_GRAPH, GPU_MEMORY_TYPE_KV_CACHE, GPU_MEMORY_TYPE_WEIGHTS
 
@@ -12,6 +13,12 @@ from miles.utils.tracking_utils import finish_tracking, init_tracking
 
 async def train(args):
     configure_logger()
+    eval_only = args.num_rollout == 0 and args.eval_interval is not None
+    if eval_only:
+        # There is no colocated training model in eval-only mode, so releasing
+        # rollout memory only adds a release/resume cycle before first use.
+        args.offload_rollout = False
+
     # allocate the GPUs
     pgs = create_placement_groups(args)
     init_tracking(args)
@@ -19,6 +26,27 @@ async def train(args):
     # create the rollout manager, with sglang engines inside.
     # need to initialize rollout manager first to calculate num_rollout
     rollout_manager, num_rollout_per_epoch = create_rollout_manager(args, pgs["rollout"])
+
+    # Eval-only runs use the rollout checkpoint directly and must not construct a
+    # training optimizer. With num_rollout=0, Megatron derives zero decay steps
+    # and rejects the optimizer configuration before evaluation can start.
+    if eval_only:
+        # Rollout servers start asynchronously. Normal training waits for them
+        # while constructing the actor; eval-only must provide that barrier.
+        engines_and_lock = await rollout_manager.get_updatable_engines_and_lock.remote()
+        for _ in range(120):
+            health = await asyncio.gather(
+                *(engine.health_generate.remote(timeout=5) for engine in engines_and_lock.rollout_engines),
+                return_exceptions=True,
+            )
+            if health and all(result is True for result in health):
+                break
+            await asyncio.sleep(5)
+        else:
+            raise TimeoutError("Rollout engines did not become HTTP-ready within 10 minutes")
+        await rollout_manager.eval.remote(rollout_id=0)
+        await rollout_manager.dispose.remote()
+        return
 
     # create the actor and critic models
     actor_model, critic_model = await create_training_models(args, pgs, rollout_manager)
@@ -34,10 +62,6 @@ async def train(args):
 
     if args.offload_rollout:
         await rollout_manager.onload_kv.remote()
-
-    # special case for eval-only
-    if args.num_rollout == 0 and args.eval_interval is not None:
-        await rollout_manager.eval.remote(rollout_id=0)
 
     async def offload_train():
         if args.offload_train:
@@ -88,7 +112,8 @@ async def train(args):
         else:
             await actor_model.train(rollout_id, rollout_data_ref)
 
-        if should_run_periodic_action(rollout_id, args.save_interval, num_rollout_per_epoch, args.num_rollout):
+        save_num_rollout = None if os.environ.get("MILES_DISABLE_FINAL_SAVE") else args.num_rollout
+        if should_run_periodic_action(rollout_id, args.save_interval, num_rollout_per_epoch, save_num_rollout):
             await save(rollout_id)
 
         await offload_train()

@@ -1,0 +1,7 @@
+# Merged onto `args` via --custom-config-path (miles/utils/arguments.py:2306).
+# max_turns = max decision steps per episode (also the per-episode action budget unless a
+# dataset row overrides it via metadata.max_actions). Start small: each turn appends one grid
+# image, and longer episodes mean more samples + more API calls.
+max_turns: 16
+# Qwen3.5 long-CoT thinking OFF: reasoning goes into <memory>, keeping responses short + parseable.
+arc_enable_thinking: false

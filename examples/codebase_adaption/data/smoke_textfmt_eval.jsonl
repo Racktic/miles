@@ -1,0 +1,1 @@
+{"prompt": [{"role": "user", "content": [{"type": "text", "text": "Text-format smoke eval episode."}]}], "metadata": {"split": "heldout", "order_rank": 0, "instance_ids": ["jazzband__tablib-534", "jazzband__tablib-540", "jazzband__tablib-547"], "stage_labels": ["tablib", "tablib", "tablib"]}}

@@ -16,6 +16,41 @@ wm_rewrite_keep: 3     # DEFER+K: per episode, train WRITE on only this many RAN
                        #  candidates + F_k scoring happen post-episode ONLY for the kept boundaries)
 wm_gen_max_tokens: 384 # max tokens for the reason-then-answer accuracy generation
 wm_summary_mode: replace  # eval-aligned: memory is the sole cross-trial carrier (history reset each trial)
+wm_memory_window_size: 1 # WRITE context window. 1=current behavior (previous memory + latest trial);
+                         # >1 gives WRITE the last K memories + last K trial transcripts.
+
+# --- WRITE reward signal (per-trial branch; read via getattr(args, ...) in alchemy_rollout) ---
+# transition_acc (default, current behaviour): WRITE reward = candidate memory's prediction accuracy on F_k.
+# downstream: WRITE reward = the ACT score of the NEXT trial that this memory drives (signal 3), whitened
+#   across siblings by (group_index, downstream_trial_pos). transition-acc is demoted to a pure MONITOR
+#   (scored on the carry-forward only, no G' candidates). Switch is read once in the rollout; the advantage
+#   hook and metrics auto-adapt via the downstream_trial_pos metadata tag.
+# downstream_improve: WRITE reward = r_{k+1} - r_k (signal 4) -- same downstream branch, but subtract the
+#   rollout's OWN previous-trial score as a temporal baseline (isolates "how much this memory improved over
+#   last trial", aligned with I_score). Reward can be negative; GRPO whitening handles it. Everything else
+#   (group key, metrics, transition-acc monitor) identical to downstream.
+# downstream_norm_improve: WRITE reward = r_{k+1}/oracle_{k+1} - r_k/oracle_k. Same as downstream_improve,
+#   but compares normalized trial performance so raw reward is not dominated by trial-specific oracle scale.
+write_reward_signal: transition_acc
+
+# downstream_norm_improve trial window: R(M_k) = mean(norm[k+1..k+K]) - mean(norm[k-K+1..k]) (windows
+# clipped to the episode; oracle<=0 trials dropped). K=1 = original single-trial difference (byte-identical
+# default; pending runs unaffected). Variance-reduction knob for the noisy single-trial diff; whitening key
+# (downstream_trial_pos = k+1) unchanged. Env override: ALCHEMY_WRITE_IMPROVE_K.
+write_improve_k: 1
+
+# k=0(第一条记忆 M_0)的 WRITE 奖励模式,仅作用于 downstream_norm_improve:
+# improve(默认,现行为) R(M_0)=mean(norm[1..K])-norm0;downstream 去掉 -norm0 项(不为烂第一局付费);
+# skip 则 k=0 不训 WRITE(M_0 照常写入使用,只是无训练样本)。其余 k 一律不变。Env: ALCHEMY_WRITE_K0_MODE。
+write_k0_mode: improve
+
+# --- ACT exploration reward (memory-delta judge; per-trial shaping on the ACT stream) ---
+# explore_reward_k = Judge(M_{k-1}, M_k) in [0,1] (deepseek; 4 equally-weighted dims /8, see alchemy_judge.py).
+# Combined at the ADVANTAGE level: act_adv += act_explore_beta * explore_adv, where explore_adv is the
+# explore_score standardized within the same (group_index, trial_pos) ACT group. raw_reward stays = task trial
+# score (existing metrics untouched). 0.0 = OFF (no judge calls, behaviour identical). Env override:
+# ALCHEMY_ACT_EXPLORE_BETA (judge knobs: DEEPSEEK_API_KEY, ALCHEMY_JUDGE_MODEL, ALCHEMY_JUDGE_CONCURRENCY).
+act_explore_beta: 0.0
 
 # --- training-stream ablations ---
 # Defaults keep the normal joint ACT+WRITE training. The run script can override these in Ray workers with:

@@ -123,7 +123,7 @@ ROLLOUT_ARGS=(
 
 CUSTOM_ARGS=(
    --custom-generate-function-path examples.alchemy.alchemy_rollout.generate
-   --custom-config-path examples/alchemy/alchemy_config.yaml
+   --custom-config-path ${ALCHEMY_CUSTOM_CONFIG_PATH:-examples/alchemy/alchemy_config.yaml}
    --custom-reward-post-process-path examples.alchemy.alchemy_advantage.reward_post_process
    --custom-rollout-log-function-path examples.alchemy.alchemy_metrics.log_rollout_data
    --custom-eval-rollout-log-function-path examples.alchemy.alchemy_metrics.log_eval_rollout_data
@@ -267,6 +267,16 @@ RUNTIME_ENV_JSON="{
     \"ALCHEMY_FREEFORM\": \"${ALCHEMY_FREEFORM:-0}\",
     \"ALCHEMY_NO_MEMORY\": \"${ALCHEMY_NO_MEMORY:-0}\",
     \"ALCHEMY_NUM_TRIALS_CAP\": \"${ALCHEMY_NUM_TRIALS_CAP:-0}\",
+    \"ALCHEMY_WRITE_SIGNAL\": \"${ALCHEMY_WRITE_SIGNAL:-transition_acc}\",
+    \"ALCHEMY_WRITE_IMPROVE_K\": \"${ALCHEMY_WRITE_IMPROVE_K:-1}\",
+    \"ALCHEMY_WRITE_K0_MODE\": \"${ALCHEMY_WRITE_K0_MODE:-improve}\",
+    \"ALCHEMY_MEMORY_WINDOW_SIZE\": \"${ALCHEMY_MEMORY_WINDOW_SIZE:-1}\",
+    \"ALCHEMY_ACT_EXPLORE_BETA\": \"${ALCHEMY_ACT_EXPLORE_BETA:-0}\",
+    \"DEEPSEEK_API_KEY\": \"${DEEPSEEK_API_KEY:-}\",
+    \"DEEPSEEK_API_BASE\": \"${DEEPSEEK_API_BASE:-https://api.deepseek.com}\",
+    \"ALCHEMY_JUDGE_MODEL\": \"${ALCHEMY_JUDGE_MODEL:-deepseek-chat}\",
+    \"ALCHEMY_JUDGE_CONCURRENCY\": \"${ALCHEMY_JUDGE_CONCURRENCY:-64}\",
+    \"ALCHEMY_JUDGE_TIMEOUT\": \"${ALCHEMY_JUDGE_TIMEOUT:-60}\",
     \"WANDB_API_KEY\": \"${WANDB_API_KEY}\"
   }
 }"
