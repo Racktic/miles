@@ -49,4 +49,14 @@ for source in "${HOST_LIBS[@]}"; do
   BIND_ARGS+=(--bind "${HOST_LIB_DIR}/${name}:/lib/x86_64-linux-gnu/${name}")
 done
 
+# Opt-in sglang patch (ported from sglang PR #27140): recapture CUDA graphs
+# after RL weight updates so replayed graphs never read relocated hybrid-model
+# state buffers. File-level bind shadows the SIF copy; no image rebuild.
+if [[ "${CODEBASE_SGLANG_RECAPTURE_PATCH:-0}" == "1" ]]; then
+  PATCHED_MIXIN="${SCRIPT_DIR}/patches/sglang/scheduler_update_weights_mixin.py"
+  [[ -f "${PATCHED_MIXIN}" ]] || { echo "Missing patched mixin: ${PATCHED_MIXIN}" >&2; exit 1; }
+  BIND_ARGS+=(--bind "${PATCHED_MIXIN}:/sgl-workspace/sglang/python/sglang/srt/managers/scheduler_update_weights_mixin.py")
+  echo "[launch] sglang recapture patch ENABLED (PR #27140 port): ${PATCHED_MIXIN}"
+fi
+
 exec apptainer exec --nv "${BIND_ARGS[@]}" "${MILES_SIF}" bash "${INNER_SCRIPT}"
