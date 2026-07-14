@@ -175,10 +175,34 @@ sync-1 后 vs sync-2 后:103 个指纹张量,唯一变动:
 - **金丝雀 #5(探针)已就绪**:actor.py train_actor 各节点打印 A_log(GPU + CPU 备份)校验和,
   日志直接点名改写者。
 
+### 金丝雀 #5(探针定位)与 #6(修复验证)——已完结,修复确认
+
+**#5 探针判决**(run `swecl-4b-alogdbg-lr0`,fp32 A_log):train_actor entry 时 GPU A_log=0
+(Megatron TMS 醒来内容丢失,设计上靠 switch 恢复补)→ switch(ref)/switch(actor)/logprobs/
+before train() 全程健康 -87.121 → **after train() = +59.931**(lr=0!)→ backup(actor) 把毒
+写进 CPU 备份 → 下个 sync ship 出去。**凶手 = optimizer.step 对孤儿 fp32 参数的回写**
+(`--optimizer-cpu-offload` 的 HybridDeviceOptimizer;两次独立 run 写入值精确相同 → 确定性,
+非梯度来源)。A_log 是全模型唯一 fp32 参数(miles PR #975 特性,构造期定型),独占 dtype 桶。
+
+**修复**:`miles_plugins/models/qwen3_5.py` A_log 改随 config.dtype(bf16)。Qwen3.6 官方 HF
+权重本就 bf16;前向 `.float()` 上转;sglang 收到后内部仍 fp32 容器;训练梯度仍在 fp32 master
+累积 → 精度待遇与其余 4B 参数一致,train/rollout 两侧数值完全相同(一致性反而更强)。
+
+**#6 复验判决**(run `swecl-4b-alogfix-lr0`,lr=0):
+- after train() = **-87.121 不变**;backup 干净;sync-2 引擎指纹与 sync-1 逐位相同;
+- rollout_0 ACT 0.2277(bf16 无行为损失)→ **rollout_1 ACT 0.1967(修复前 0.0000)**;
+- 轨迹格式:有命令率 97%(病时 65%)、短退化输出 0(病时 102-145)、成功 70/160(病时 0);
+- rollout_0 actor==ref logprob 16 位相等照旧。
+
+**上游背景**(两轮网络调研):此具体机制无先例报告;相邻已知碎片:Megatron #2777(fp32 重排
+索引错位,修复已在我们 fork)、#4042/#4046(HDO identity map,修复未合入)、NeMo-RL #2372
+(HDO 三层副本首步写回陈旧值);疑似同族野外悬案:verl #4917/#5317(Qwen3-Next+offload,
+step2 起乱码,未解决)。slime 无 A_log 相关报告。
+
 ### 尚待办
-- #5 定位改写操作 → 修复(候选:修 fp32 死代码路径 / 去掉嫌疑优化器旗标 / 修 backup 时序);
-- 修复后 lr=0 金丝雀复验(判据:rollout_1 ACT 恢复 + actor==ref 16 位 + A_log 指纹不变);
-- 恢复正式训练(seq 24576);向 miles 上游报 bug。
+- 恢复正式训练(seq 24576,wrapper `scripts/train_4b_formal_alogfix.sh` 已备);
+- 向 miles 上游报 bug(lr=0 复现 + 探针证据链,引用 #2777/#4042/NeMo-RL#2372);
+- (可选二期)若想保 fp32 A_log:修 HybridDeviceOptimizer 的 fp32 桶回写路径。
 
 ## 五、行动方案
 
