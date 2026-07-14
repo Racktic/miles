@@ -456,9 +456,9 @@ class MegatronTrainRayActor(TrainRayActor):
         # update the cpu actor weight to the latest model
         if self._enable_weight_backup:
             self.weights_backuper.backup("actor")
-        self._dbg_alog("after backup(actor)")
         else:
             torch.cuda.synchronize()
+        self._dbg_alog("after backup(actor)")
 
         # Update ref model if needed
         if (
