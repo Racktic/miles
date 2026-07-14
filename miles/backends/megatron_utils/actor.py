@@ -154,9 +154,11 @@ class MegatronTrainRayActor(TrainRayActor):
         self._active_model_tag: str | None = "actor"
         if self._enable_weight_backup:
             self.weights_backuper.backup("actor")
+        self._dbg_alog("init after backup(actor)")
 
         if with_ref:
             self.load_other_checkpoint("ref", args.ref_load)
+            self._dbg_alog("init after ref load")
 
         # Load teacher model for Megatron-based on-policy distillation
         if with_opd_teacher:
@@ -316,6 +318,36 @@ class MegatronTrainRayActor(TrainRayActor):
     def _use_rollout_replay(self, m) -> bool:
         return getattr(self.args, f"use_rollout_{m.name}_replay", False)
 
+    def _dbg_alog(self, where: str) -> None:
+        """崩塌排查探针(2026-07-14): 追踪 layer-0 A_log 在训练步内被谁改写。
+        证据: lr=0 下 sync-1→sync-2 之间全部指纹张量唯 A_log 变化(-87.12→+59.93)。"""
+        try:
+            with torch.no_grad():
+                for chunk in self.model:
+                    for name, p in chunk.named_parameters():
+                        if name.endswith("linear_attn.A_log"):
+                            logger.info(
+                                f"[alog-dbg] {where} | {name} dtype={p.dtype} "
+                                f"sum={p.double().sum().item():.9e}"
+                            )
+                            raise StopIteration
+        except StopIteration:
+            pass
+        except Exception as exc:
+            logger.warning(f"[alog-dbg] {where} failed: {exc}")
+        try:
+            backups = getattr(self.weights_backuper, "_backups", None)
+            if backups and "actor" in backups:
+                for name, t in backups["actor"].items():
+                    if name.endswith("A_log"):
+                        logger.info(
+                            f"[alog-dbg] {where} | cpu_backup[actor] {name} dtype={t.dtype} "
+                            f"sum={t.double().sum().item():.9e}"
+                        )
+                        break
+        except Exception as exc:
+            logger.warning(f"[alog-dbg] {where} backup probe failed: {exc}")
+
     def train_actor(self, rollout_id: int, rollout_data: RolloutBatch) -> None:
         # Create data iterator for log_probs and train.
         data_iterator, num_microbatches = get_data_iterator(self.args, self.model, rollout_data)
@@ -335,11 +367,13 @@ class MegatronTrainRayActor(TrainRayActor):
                     indices_are_token_positions=m.replay_indices_are_token_positions,
                 )
 
+        self._dbg_alog("train_actor entry")
         with inverse_timer("train_wait"), timer("train"):
             if self.args.compute_advantages_and_returns:
                 if "ref" in self.weights_backuper.backup_tags:
                     self._set_replay_stage("fallthrough")
                     self._switch_model("ref")
+                    self._dbg_alog("after switch(ref)")
                     rollout_data.update(
                         self.compute_log_prob(
                             data_iterator,
@@ -347,6 +381,7 @@ class MegatronTrainRayActor(TrainRayActor):
                             store_prefix="ref_",
                         )
                     )
+                    self._dbg_alog("after ref logprobs")
                 # Forward teacher model to get teacher_log_probs for Megatron-based OPD
                 if "teacher" in self.weights_backuper.backup_tags:
                     self._set_replay_stage("fallthrough")
@@ -359,6 +394,7 @@ class MegatronTrainRayActor(TrainRayActor):
                         )
                     )
                 self._switch_model("old_actor" if self.args.keep_old_actor else "actor")
+                self._dbg_alog("after switch(actor)")
                 if not self.args.use_rollout_logprobs or self.args.get_mismatch_metrics:
                     for m in all_replay_managers:
                         if m.enabled:
@@ -396,6 +432,7 @@ class MegatronTrainRayActor(TrainRayActor):
             log_rollout_data(rollout_id, self.args, rollout_data)
 
             # Train
+            self._dbg_alog("before train()")
             self._set_replay_stage("replay_backward")
             with timer("actor_train"):
                 train(
@@ -406,6 +443,7 @@ class MegatronTrainRayActor(TrainRayActor):
                     data_iterator,
                     num_microbatches,
                 )
+            self._dbg_alog("after train()")
 
             self.prof.step(rollout_id=rollout_id)
 
@@ -420,6 +458,7 @@ class MegatronTrainRayActor(TrainRayActor):
             self.weights_backuper.backup("actor")
         else:
             torch.cuda.synchronize()
+        self._dbg_alog("after backup(actor)")
 
         # Update ref model if needed
         if (

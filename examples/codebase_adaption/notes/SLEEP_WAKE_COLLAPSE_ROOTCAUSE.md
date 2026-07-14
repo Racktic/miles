@@ -1,4 +1,11 @@
-# rollout_1 崩塌根因调研:sleep/wake 后 CUDA graph 回放陈旧 mamba 状态指针
+# rollout_1 崩塌根因调研(定案:A_log 权重损坏;CUDA graph 假设已被否证)
+
+> **2026-07-14 定案更新**:金丝雀阶梯(#1 recapture / #2 关 graph / #3 醒后补 flush /
+> #4 霰弹清零+张量指纹)否证了本文最初的 CUDA graph 指针假设。真凶由 #4 的张量指纹抓获:
+> **lr=0 下 sync-1→sync-2 之间唯一变动的张量 = `layers.0.linear_attn.A_log`
+> (-87.121→+59.931,8 引擎一致)** —— GDN 状态衰减参数在第一个训练步内被 Megatron 侧
+> 某操作改写,随后经 CPU 备份 ship 给 sglang,引擎无辜。详见"四·七"节。原文其余部分
+> 保留作为排查过程记录。
 
 日期:2026-07-14。三个网络调研 agent(sglang 仓库 / RL 框架社区 / torch_memory_saver 机制)交叉验证 + 本仓自有实验证据链。
 
@@ -95,6 +102,108 @@ rollout,更新时点在 resume 之后,重捕获拿到的就是新地址。代价
 capture(数十秒量级,相对 27-63min 的 rollout 可忽略);风险点:#27140 评审区提过反复重捕获
 的 graph 内存池回收问题,需盯 avail mem 日志。
 
+## 四·六、金丝雀判决记录(2026-07-14,worktree 分支 fix/sglang-recapture-cudagraph)
+
+### 金丝雀 #1:recapture 补丁(#27140 移植版)—— **无效,#27140 机制排除**
+- run `swecl-4b-recapture-lr0`(lr=0,2 rollout,seq24576):补丁在 8 引擎、全部 6 次同步
+  正确触发(时序核实:onload_weights → 149 次张量传输 → onload_kv 内部 KV 恢复后重捕获);
+- 结果:rollout_0 ACT 0.2216(89/160 成功)→ rollout_1 ACT **0.0000**(0/160);
+- **逐项病理对照(vs 无补丁金丝雀)完全一致**:有命令率 68%→65%,无块空回复 1797→1684,
+  多块 182→257,烧满 40 轮 95%→84% —— 统计噪声级差异,补丁零效果。
+- **新推论(重要)**:rollout_0 之前同样有完整 release→resume→同步周期(01:37 触发过重捕获)
+  且 rollout_0 健康 → "睡醒+同步"本身不毒;毒在 rollout_0 的 160 路重负载推理期间**在引擎内
+  积累**,并扛过了 flush+睡醒+重捕获。同时 eval-only(无睡醒,1036 episode 重负载)全程健康
+  → 毒的形成需要"重负载 + 睡醒"两个条件都在(顺序:负载在前,睡醒在后)。
+
+### mamba cache 子树核查(进 SIF 逐行验证)
+- **#24954 缺失**(无 `mamba_value_donated`/`_execute_deferred_mamba_cow`):overlap scheduler
+  下未等 copy_done 就快照 ping-pong buffer,污染态写进 radix cache 被后续请求复用;
+- **#26941 缺失**(memory_pool.py 无 null-out 修复):req 上残留 ping-pong 引用使 alloc-skip
+  误判,**已释放的槽位张量被新请求静默复用**(递归状态跨请求串染)+ 槽泄漏;
+- 我们构建 ping-pong 机制**激活**:memory_pool.py:513
+  `mamba_ping_pong_track_buffer_size = 2 if enable_overlap_schedule else 1`,:592 正是
+  #26941 指认的 `if req.mamba_ping_pong_track_buffer is None` alloc-skip 检查。
+
+### 金丝雀 #2:`--sglang-disable-cuda-graph` —— 照崩,graph 全线无罪
+run `swecl-4b-nograph-lr0`:纯 eager decode,rollout_0 ACT 0.2092 → rollout_1 **0.0000**。
+且 r1 raw_reward=0.03778 与 #1 的 0.03775 几乎逐位相同 → 损坏是**确定性的**,不是竞态。
+
+### 金丝雀 #3:醒后补 flush —— 照崩
+run `swecl-4b-postflush-lr0`:resume(KV) 后在活内存上重跑 flush_cache(重置簿记)。
+rollout_0 ACT 0.2437 → rollout_1 **0.0000**。"paused 期间 flush 重置写丢"理论死
+(后经代码核实 mapping 张量本就在 region 外)。
+
+### 轮位/题位分析(零成本,方向修正两次)
+1. 按 issue 内轮位:rollout_1 每题第 1 轮空命令率 43-49%(rollout_0 同位 1-4%)——
+   最初误读为"醒后首批请求就坏"。
+2. 按 episode 题位(trial_pos)修正:p0(episode 首题,memory 为空)已病(空命令 24-27%,
+   0 成功),病随题位加深(最高 52%)→ **memory/WRITE 通道是放大器不是源头**
+   (rollout_1 里发现中毒 memory:命令碎片、错仓库路径、模板占位语——都是退化 ACT 的下游产物)。
+3. 数据混杂因子排除:三金丝雀 rollout_1 题集相同(seed 固定)但这些题 baseline 表现良好
+   (均值 0.259 高于 rollout_0 批次),且 **8 题同时出现在两轮:r0 解出、r1 归零** → 数据无罪。
+4. 同题同输入对照(astropy-14309,8065 字符输入逐字节相同):r1 四个副本中 3 个连贯、
+   1 个胡话命令 → 逐请求 ~25% 概率退化,"轻度全局变笨"画像。
+
+### 决定性反常:lr=0 下 actor≠ref(指标考古)
+- rollout_0(所有 run):`rollout/log_probs == rollout/ref_log_probs` 到 16 位小数;
+- rollout_1(所有 run):actor ≈ -0.80~-0.83 vs ref ≈ -1.09~-1.13,**gap≈+0.3**;
+- fix2(lr=1e-6,5 步):step0 gap=0.0000,step1-4 gap 恒 +0.29~0.30(与 lr 无关!)。
+→ 第一个训练步之后 **Megatron actor 权重 ≠ ckpt**;而发给 sglang 的权重来自
+`weights_backuper.get("actor")`(CPU 备份,step 末刷新)→ **sync-2 ship 的就是坏权重,
+引擎所有修复自然全部无效**。
+
+## 四·七、真凶定案:A_log(金丝雀 #4 张量指纹)
+
+run `swecl-4b-zeropool-lr0` 在 bind 的 mixin 里加了两件仪表:①醒后霰弹清零(req_to_token、
+mamba conv/temporal 含 pad slot 0、KV buffer);②每次 resume 末尾打印全部 83 个 named_buffers
++ 40 个抽样参数的校验和。结果(8 引擎完全一致,ray worker 日志逐引擎核验):
+
+```
+sync-1 后 vs sync-2 后:103 个指纹张量,唯一变动:
+  model.layers.0.linear_attn.A_log:  -8.712109375e+01  →  +5.993066406e+01
+```
+
+- A_log = GDN 线性注意力的状态衰减参数(前向:`g = -A_log.exp() * softplus(a + dt_bias)`);
+  它坏了 → 每个 token 的递归记忆错误衰减 → "流畅但变笨、~25% 回合脱轨"完全吻合;
+- 附带确认:weights 区域醒来后参数页为**全零**(weights cpu_backup 关闭),一切靠传输覆盖;
+  层 31 是 full-attention 层(无 A_log),指纹只采到 layer 0 的 A_log,其余 linear 层大概率同病;
+- `mark_param_dtype(A_log, fp32)`(miles_plugins/models/qwen3_5.py:81)是**死代码**:
+  `enforce_marked_param_dtypes` 全库无调用点,运行时 A_log 同样被 Float16Module 铸成 bf16;
+- 改写发生在 train_actor 的第一个训练步内(init 备份 → step0 末备份之间);嫌疑操作:
+  optimizer.step 的 master→param 回写(--use-precision-aware-optimizer/--optimizer-cpu-offload
+  /--overlap-cpu-optimizer-d2h-h2d)、switch(ref)/switch(actor) 恢复、Megatron TMS 睡醒。
+- **金丝雀 #5(探针)已就绪**:actor.py train_actor 各节点打印 A_log(GPU + CPU 备份)校验和,
+  日志直接点名改写者。
+
+### 金丝雀 #5(探针定位)与 #6(修复验证)——已完结,修复确认
+
+**#5 探针判决**(run `swecl-4b-alogdbg-lr0`,fp32 A_log):train_actor entry 时 GPU A_log=0
+(Megatron TMS 醒来内容丢失,设计上靠 switch 恢复补)→ switch(ref)/switch(actor)/logprobs/
+before train() 全程健康 -87.121 → **after train() = +59.931**(lr=0!)→ backup(actor) 把毒
+写进 CPU 备份 → 下个 sync ship 出去。**凶手 = optimizer.step 对孤儿 fp32 参数的回写**
+(`--optimizer-cpu-offload` 的 HybridDeviceOptimizer;两次独立 run 写入值精确相同 → 确定性,
+非梯度来源)。A_log 是全模型唯一 fp32 参数(miles PR #975 特性,构造期定型),独占 dtype 桶。
+
+**修复**:`miles_plugins/models/qwen3_5.py` A_log 改随 config.dtype(bf16)。Qwen3.6 官方 HF
+权重本就 bf16;前向 `.float()` 上转;sglang 收到后内部仍 fp32 容器;训练梯度仍在 fp32 master
+累积 → 精度待遇与其余 4B 参数一致,train/rollout 两侧数值完全相同(一致性反而更强)。
+
+**#6 复验判决**(run `swecl-4b-alogfix-lr0`,lr=0):
+- after train() = **-87.121 不变**;backup 干净;sync-2 引擎指纹与 sync-1 逐位相同;
+- rollout_0 ACT 0.2277(bf16 无行为损失)→ **rollout_1 ACT 0.1967(修复前 0.0000)**;
+- 轨迹格式:有命令率 97%(病时 65%)、短退化输出 0(病时 102-145)、成功 70/160(病时 0);
+- rollout_0 actor==ref logprob 16 位相等照旧。
+
+**上游背景**(两轮网络调研):此具体机制无先例报告;相邻已知碎片:Megatron #2777(fp32 重排
+索引错位,修复已在我们 fork)、#4042/#4046(HDO identity map,修复未合入)、NeMo-RL #2372
+(HDO 三层副本首步写回陈旧值);疑似同族野外悬案:verl #4917/#5317(Qwen3-Next+offload,
+step2 起乱码,未解决)。slime 无 A_log 相关报告。
+
+### 尚待办
+- 恢复正式训练(seq 24576,wrapper `scripts/train_4b_formal_alogfix.sh` 已备);
+- 向 miles 上游报 bug(lr=0 复现 + 探针证据链,引用 #2777/#4042/NeMo-RL#2372);
+- (可选二期)若想保 fp32 A_log:修 HybridDeviceOptimizer 的 fp32 桶回写路径。
+
 ## 五、行动方案
 
 1. **确诊金丝雀(待批)**:lr=0 + `--sglang-disable-cuda-graph`,2 rollout。rollout_1 恢复健康
@@ -109,6 +218,91 @@ capture(数十秒量级,相对 27-63min 的 rollout 可忽略);风险点:#27140 
    训练可先恢复)。
 4. **上游反馈**:在 #27140 评论区补充我们的复现(Qwen3.5-4B / A100 / lr=0 复现 / weights_checker
    通过 / 病理画像),与 miles GB200 报告互证,推动合入。
+
+## 五·五、通俗版五问五答(2026-07-14,给非工程视角的完整解释)
+
+### 问 1:问题的原因是什么?怎么找到的?
+
+**原因**:不是推理引擎坏了,是模型权重本身在第一个训练步里被优化器写坏了一个参数
+(`linear_attn.A_log`,线性注意力层的"记忆衰减速率"),坏权重随后被同步给推理引擎。
+模型不输出乱码(其他层完好),而是整体变笨:约 25% 回合退化,解题 85/160 → 0/160。
+
+**触发三条件缺一不可**:①Qwen3.5 类混合架构(有 A_log;Qwen3 没有,故 alchemy 免疫);
+②miles 特殊设计——全模型 bf16 唯独 A_log 保 fp32(孤儿参数,在优化器里独占特殊分组);
+③`--optimizer-cpu-offload`(单机省显存必开;大集群用户常不开)。满足后第一次
+optimizer.step() 就写坏它,lr=0 也一样。rollout_0 健康是因为首次同步发生在任何训练步之前。
+
+**控制变量实验链**(全部 lr=0,每次只改一个变量):
+| # | 实验 | 结果 | 排除 |
+|---|---|---|---|
+| 1 | 移植 #27140 recapture 补丁 | 照崩,病理逐项相同 | graph 指针过期 |
+| 2 | 全关 CUDA graph | 照崩,数值逐位复现 | 一切 graph 假设;确定性损坏非竞态 |
+| 3 | 醒后补 flush | 照崩 | 引擎账本损坏 |
+| 4a | 醒后缓存全清零 | 照崩 | 引擎一切缓存污染 |
+| 4b | 权重张量指纹 | 103 张量唯 A_log 变(-87→+59, 8引擎一致) | **抓到真凶** |
+| 5 | 训练步逐环节探针 | before train() 健康 → after train() 变坏 | 定位 optimizer.step |
+| 6 | A_log 改 bf16 复验 | rollout_1 恢复 0.1967 | 确认修复 |
+
+两个零成本转折点:①同题同输入在 r0 正常解出、r1 退化 → 分布变了不是数据问题;
+②lr=0 时 actor/ref logprob 数学上必须相等,r0 相等到 16 位、r1 差 0.3 → 权重必然变了
+(把排查从引擎扳到权重的关键)。
+
+### 问 2:怎么修的?主流实现证明有效吗?
+
+修改一行:A_log 创建从强制 fp32 改为随全模型 bf16。孤儿没了,问题路径不再被走到。
+**bf16 A_log 是除 miles 外全世界的统一做法**(agent clone 各仓库逐文件读源码核实):
+Megatron-LM 官方 GDN 实现 `dtype=config.params_dtype`;slime 无任何 fp32 保留逻辑
+(Float16Module 统一铸 bf16);verl 全仓库 grep "A_log" 零命中(继承 mcore bf16);
+Megatron-Bridge 显式转 param dtype;**HF transformers 运行时 A_log 就是 bf16**
+(NVIDIA 审阅者实测,尽管 ckpt 文件存 fp32)。
+
+### 问 3:fp32 是 miles 特立独行吗?为什么?
+
+是(公开主线范围内;私有 fork 无法排除)。NVIDIA 也有人提过同样的 fp32 提案
+(Megatron PR #3634,理由与 miles #975 一字不差),被 NVIDIA 审阅者拒掉未合。
+miles 的动机(#975):Qwen3.5 HF ckpt 文件里 A_log 以 fp32 存 + 前向过 exp() 放大误差 +
+想与 sglang 内部 fp32 逐比特一致。动机讲得通,但守护的是 ~0.4% 的精度细节,却没测过
+与 cpu-offload 优化器的相互作用,制造了把参数写成垃圾的路径。且这 0.4% 本不必守:
+HF 官方推理运行时就是 bf16,所有公开 benchmark 都是 bf16 A_log 跑出来的(Qwen3.6 ckpt
+干脆改存 bf16)。
+
+### 问 4:修复有害吗?牺牲了什么?
+
+**牺牲**:A_log 存储精度 32 位→16 位(ckpt 值一次性舍入 ~0.4%,更新结果逐次舍入)——
+这正是其余 40 亿参数从来的待遇,A_log 只是从特权变平民。**不牺牲**:计算精度不变
+(前向 `A_log.float().exp()` 照旧 fp32);训练更新精度不变(梯度仍在 fp32 master 累积);
+train/rollout 一致性反而更好(两侧同一份 bf16 值);实测 rollout_0=0.2277 健康区间正中。
+**诚实交代**:优化器深层 bug 本身未修,只是不再被触发(模型里不再有 fp32 孤儿)。若未来
+引入别的 fp32 特权参数会复发——所以要报上游;分支里保留指纹/探针仪表,复发即现形。
+
+### 问 5:与网上其他问题的关联?
+
+三类:①**同家族**(同一优化器的相邻 bug,均未完全修好):Megatron #2777(fp32 重排索引
+错位,已在我们 fork,表现为存 ckpt 报错)、#4042/#4046(HDO 身份映射失效,崩溃变体,修复
+未合;NVIDIA 对该崩溃推荐的规避 flag 恰是我们出事的 flag)、#5071/NeMo-RL#2372(首步把
+已加载权重整个覆盖,全参数响亮版;我们是单参数无声版)。②**疑似同病未确诊**:
+verl #4917(Qwen3-Next-80B step2 起乱码,半年未解)、slime #1852(Qwen3.5-397B rollout
+异常,归因权重转换后不了了之)——特征全中。③**症状相似但已被我们实验排除**:
+sglang #27140/#26430/#24954/#26941(引擎侧,补丁无效+关 graph 照崩已严格排除)。
+图景:网上"混合模型 RL 训练后 rollout 变坏"是至少两种病共用一个症状(引擎病 vs 训练侧
+优化器病),大家都在第一种里找答案,我们证明并锤实了第二种。
+
+### 补充问答
+
+**alchemy 开 cpu-offload 了吗?** 开了,三件套全开(run_alchemy_qwen3-4B.sh:168-170)——
+但 Qwen3 无 A_log 无孤儿 fp32,恰好构成对照:cpu-offload × dtype 统一的模型 = 无害,
+毒性只在"cpu-offload × 孤儿 fp32"交集上。
+
+**优化器深层 bug 到底是什么?** 实锤:损坏在 train() 内、lr=0 也发生、跨 run 写入值精确
+相同(与梯度/数据无关的确定性内存操作)、只有孤儿 fp32 中招。机制推断(未追到具体行):
+cpu-offload 的参数更新是 GPU→CPU 副本→CPU 更新→写回 GPU 的搬运流水线,依赖多层副本
+映射;分布式优化器对 fp32 参数走独立支线(master 直接别名参数本体,不同于 bf16 的独立
+副本),全模型只有 A_log 走它,该支线的映射/偏移有错 → 写回时把别的缓冲区字节灌进
+A_log(布局确定 → 垃圾值确定)。二期可在该支线写回处加探针精确定位(或留给上游维护者)。
+
+**为什么探针值绝对值那么大(-87)?** 那是 32 元素向量的求和校验值,单元素平均 -2.72,
+正落在 log(U(0,16)) 的正常范围;坏值 +59.93 → 单元素 +1.87,符号翻转量级全错——
+前向 exp(-2.72)≈0.066 vs exp(+1.87)≈6.5,衰减率差约 100 倍,故小向量坏掉即整体变笨。
 
 ## 六、来源索引
 

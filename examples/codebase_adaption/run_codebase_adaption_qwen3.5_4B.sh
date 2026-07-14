@@ -191,6 +191,10 @@ SGLANG_ARGS=(
   # eval 全量(1036 episode 一次性投放)必须限流, wrapper 设 4 -> 32 并发(2026-07-13 用户批准)。
   --sglang-server-concurrency ${CODEBASE_SGLANG_CONCURRENCY:-512}
 )
+# 崩塌排查金丝雀的显式引擎旗标通道(如 --sglang-disable-cuda-graph);默认空 = 行为零变化。
+if [ -n "${CODEBASE_SGLANG_EXTRA_ARGS:-}" ]; then
+  SGLANG_ARGS+=(${CODEBASE_SGLANG_EXTRA_ARGS})
+fi
 
 MISC_ARGS=(
   --actor-num-nodes 1
