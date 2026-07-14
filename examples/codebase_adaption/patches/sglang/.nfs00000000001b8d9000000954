@@ -275,15 +275,6 @@ class SchedulerUpdateWeightsMixin:
                 if hasattr(self, "disagg_prefill_bootstrap_queue"):
                     self.disagg_prefill_bootstrap_queue.resume_memory_occupation()
 
-            # Flush again on RESUMED memory. The flush issued while the pool
-            # was paused (e.g. at the start of a weight update) wrote its
-            # resets into physical pages that were released, so bookkeeping
-            # tensors under the kv_cache tag (req_to_token, mamba index
-            # mappings) come back as garbage after resume. Re-running the
-            # flush here rewrites them on live pages.
-            logger.info("Post-resume cache flush (rewrite pool bookkeeping on live memory)")
-            self.flush_cache()
-
         if self.cuda_graphs_need_recapture:
             self.recapture_cuda_graphs_after_weight_update()
             self.cuda_graphs_need_recapture = False
