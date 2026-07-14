@@ -1,0 +1,27 @@
+# Custom knobs for examples.codebase_adaption.
+#
+# The rollout imports Continual Learning Bench at runtime and uses it as the
+# authoritative environment/scorer. Keep benchmark data out of this directory.
+
+codebase_clbench_root: /home/qixinx/continual-learning-bench
+# 训练走 swe_bench_cl(相对 clbench_root); reset 用 episode 的 instance_ids 精确取题, 只需 dataset 含这些 id。
+codebase_train_dataset: data/swe_bench_cl/full.jsonl
+codebase_split: train
+codebase_seed: 42
+codebase_shuffle_seed_offset: 0
+codebase_num_acts_cap: 0
+codebase_max_steps_per_issue: 40
+
+# Baseline rewards by instance_id, 供 gain=reward-baseline。合并文件覆盖 232(swe_bench_cl, reward=avg@4)
+# + 19(codebase)= 251 题(缺 id 会静默取 0, 故必须全覆盖)。由 scripts/swecl/gen_train_episodes.py 生成。
+# 可用 CODEBASE_BASELINE_ARTIFACT 覆盖。
+codebase_baseline_artifact: /home/qixinx/miles/examples/codebase_adaption/data/baseline_merged.json
+
+# WRITE reward: mean future gain minus mean previous gain, matching the
+# downstream_norm_improve shape from alchemy but using baseline-relative gain.
+codebase_write_improve_k: 1
+codebase_write_k0_mode: improve
+codebase_memory_max_tokens: 2048
+
+# Qwen3.5 thinking off, matching the alchemy recipe.
+arc_enable_thinking: false

@@ -1,0 +1,1004 @@
+{
+  "instance_outcomes": [
+    {
+      "instance_id": "astropy__astropy-12907",
+      "reward": 0.2625
+    },
+    {
+      "instance_id": "astropy__astropy-13236",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "astropy__astropy-13453",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "astropy__astropy-13579",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "astropy__astropy-13977",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "astropy__astropy-14096",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "astropy__astropy-14182",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "astropy__astropy-14309",
+      "reward": 0.5875
+    },
+    {
+      "instance_id": "astropy__astropy-14365",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "astropy__astropy-14369",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "astropy__astropy-14508",
+      "reward": 0.025
+    },
+    {
+      "instance_id": "astropy__astropy-14539",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "astropy__astropy-14598",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "astropy__astropy-14995",
+      "reward": 0.1938
+    },
+    {
+      "instance_id": "astropy__astropy-7166",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "astropy__astropy-7606",
+      "reward": 0.5625
+    },
+    {
+      "instance_id": "astropy__astropy-7671",
+      "reward": 0.4
+    },
+    {
+      "instance_id": "pytest-dev__pytest-10051",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "pytest-dev__pytest-10081",
+      "reward": 0.075
+    },
+    {
+      "instance_id": "pytest-dev__pytest-10356",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5262",
+      "reward": 0.1
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5631",
+      "reward": 0.1813
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5787",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5840",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "pytest-dev__pytest-6197",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "pytest-dev__pytest-6202",
+      "reward": 0.275
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7205",
+      "reward": 0.5
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7236",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7432",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7490",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7571",
+      "reward": 0.0875
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7982",
+      "reward": 0.1
+    },
+    {
+      "instance_id": "pytest-dev__pytest-8399",
+      "reward": 0.2375
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-7440",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-7454",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-7462",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-7889",
+      "reward": 0.025
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-7910",
+      "reward": 0.1125
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-8459",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-9230",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-9258",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-9281",
+      "reward": 0.075
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-9320",
+      "reward": 0.1375
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-9367",
+      "reward": 0.425
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-9591",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-9698",
+      "reward": 0.15
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-10323",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-10435",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-7748",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-7757",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-7985",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-8035",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-8056",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-8551",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-8593",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-8638",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-9602",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-9658",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-10466",
+      "reward": 0.3812
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-10673",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-10614",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-11445",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-8548",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-9461",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-11510",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-7590",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-13989",
+      "reward": 0.0938
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-20676",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-20859",
+      "reward": 0.2687
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-22719",
+      "reward": 0.4062
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-23476",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-24570",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-25311",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-25332",
+      "reward": 0.0625
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-25479",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-14623",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-20488",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-21568",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-22865",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-20826",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-22871",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-23299",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-23412",
+      "reward": 0.0125
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-24637",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-24870",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-24970",
+      "reward": 0.1125
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-11310",
+      "reward": 0.0437
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-25775",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-26291",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-25960",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-26342",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-12585",
+      "reward": 0.5375
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-13135",
+      "reward": 0.1688
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-26466",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-13142",
+      "reward": 0.0938
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-13328",
+      "reward": 0.2938
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-13439",
+      "reward": 0.1875
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-13496",
+      "reward": 0.0437
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-13779",
+      "reward": 0.4875
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-14141",
+      "reward": 0.6
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-14983",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-10297",
+      "reward": 0.0938
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-9288",
+      "reward": 0.275
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-10844",
+      "reward": 0.5875
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-10908",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-11578",
+      "reward": 0.4187
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-12682",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-12973",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-13124",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-14053",
+      "reward": 0.1562
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-25232",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-14087",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-14629",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-14894",
+      "reward": 0.2438
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-15100",
+      "reward": 0.45
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-25747",
+      "reward": 0.0688
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-25931",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-26194",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-26323",
+      "reward": 0.1375
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-25973",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-25102",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "pydata__xarray-4075",
+      "reward": 0.3563
+    },
+    {
+      "instance_id": "pydata__xarray-4094",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "pydata__xarray-6461",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "pydata__xarray-2905",
+      "reward": 0.0375
+    },
+    {
+      "instance_id": "pydata__xarray-3095",
+      "reward": 0.0563
+    },
+    {
+      "instance_id": "pydata__xarray-3151",
+      "reward": 0.2
+    },
+    {
+      "instance_id": "pydata__xarray-3305",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "pydata__xarray-3677",
+      "reward": 0.375
+    },
+    {
+      "instance_id": "pydata__xarray-4966",
+      "reward": 0.375
+    },
+    {
+      "instance_id": "pydata__xarray-4695",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "pydata__xarray-6721",
+      "reward": 0.2062
+    },
+    {
+      "instance_id": "pydata__xarray-6938",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "pydata__xarray-7233",
+      "reward": 0.1
+    },
+    {
+      "instance_id": "pydata__xarray-7229",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "pydata__xarray-7393",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "pydata__xarray-6992",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "django__django-9296",
+      "reward": 0.4688
+    },
+    {
+      "instance_id": "django__django-10914",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "django__django-10999",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "django__django-10880",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "django__django-11119",
+      "reward": 0.4938
+    },
+    {
+      "instance_id": "django__django-11133",
+      "reward": 0.075
+    },
+    {
+      "instance_id": "django__django-11163",
+      "reward": 0.35
+    },
+    {
+      "instance_id": "django__django-11179",
+      "reward": 0.275
+    },
+    {
+      "instance_id": "django__django-11239",
+      "reward": 0.3875
+    },
+    {
+      "instance_id": "django__django-11299",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "django__django-11433",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "django__django-11451",
+      "reward": 0.1625
+    },
+    {
+      "instance_id": "django__django-11490",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "django__django-11555",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "django__django-11603",
+      "reward": 0.3187
+    },
+    {
+      "instance_id": "django__django-11820",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "django__django-11880",
+      "reward": 0.2562
+    },
+    {
+      "instance_id": "django__django-11951",
+      "reward": 0.2625
+    },
+    {
+      "instance_id": "django__django-12125",
+      "reward": 0.0938
+    },
+    {
+      "instance_id": "django__django-12193",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "django__django-11964",
+      "reward": 0.025
+    },
+    {
+      "instance_id": "django__django-12276",
+      "reward": 0.175
+    },
+    {
+      "instance_id": "django__django-12304",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "django__django-12308",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "django__django-12209",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "django__django-12419",
+      "reward": 0.475
+    },
+    {
+      "instance_id": "django__django-12741",
+      "reward": 0.275
+    },
+    {
+      "instance_id": "django__django-13023",
+      "reward": 0.05
+    },
+    {
+      "instance_id": "django__django-13109",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "django__django-13112",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "django__django-13297",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "django__django-13406",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "django__django-13363",
+      "reward": 0.4125
+    },
+    {
+      "instance_id": "django__django-13417",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "django__django-13512",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "django__django-13551",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "django__django-13741",
+      "reward": 0.0375
+    },
+    {
+      "instance_id": "django__django-13089",
+      "reward": 0.0375
+    },
+    {
+      "instance_id": "django__django-13794",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "django__django-13807",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "django__django-13933",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "django__django-14089",
+      "reward": 0.25
+    },
+    {
+      "instance_id": "django__django-13821",
+      "reward": 0.4562
+    },
+    {
+      "instance_id": "django__django-14315",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-12096",
+      "reward": 0.1625
+    },
+    {
+      "instance_id": "django__django-14376",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "django__django-14373",
+      "reward": 0.5938
+    },
+    {
+      "instance_id": "sympy__sympy-12481",
+      "reward": 0.1437
+    },
+    {
+      "instance_id": "sympy__sympy-14711",
+      "reward": 0.2125
+    },
+    {
+      "instance_id": "sympy__sympy-13480",
+      "reward": 0.5813
+    },
+    {
+      "instance_id": "sympy__sympy-15017",
+      "reward": 0.1938
+    },
+    {
+      "instance_id": "sympy__sympy-15345",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-15809",
+      "reward": 0.2438
+    },
+    {
+      "instance_id": "sympy__sympy-15875",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-16766",
+      "reward": 0.4125
+    },
+    {
+      "instance_id": "sympy__sympy-17655",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-18189",
+      "reward": 0.1125
+    },
+    {
+      "instance_id": "sympy__sympy-18763",
+      "reward": 0.0563
+    },
+    {
+      "instance_id": "sympy__sympy-16450",
+      "reward": 0.0625
+    },
+    {
+      "instance_id": "sympy__sympy-19495",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-19637",
+      "reward": 0.225
+    },
+    {
+      "instance_id": "sympy__sympy-20916",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-19954",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-21847",
+      "reward": 0.5312
+    },
+    {
+      "instance_id": "sympy__sympy-22714",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-23534",
+      "reward": 0.1062
+    },
+    {
+      "instance_id": "sympy__sympy-17139",
+      "reward": 0.1812
+    },
+    {
+      "instance_id": "sympy__sympy-24539",
+      "reward": 0.5125
+    },
+    {
+      "instance_id": "sympy__sympy-11618",
+      "reward": 0.1625
+    },
+    {
+      "instance_id": "sympy__sympy-24562",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-12419",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-13031",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-13091",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-13551",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-13647",
+      "reward": 0.4188
+    },
+    {
+      "instance_id": "sympy__sympy-13798",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-13757",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-13974",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-14531",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-13877",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-13615",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-15349",
+      "reward": 0.5062
+    },
+    {
+      "instance_id": "sympy__sympy-14976",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-15599",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-15976",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-16792",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-17318",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-18211",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-18698",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-19040",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-19346",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-19783",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "sympy__sympy-20154",
+      "reward": 0.0562
+    },
+    {
+      "instance_id": "sympy__sympy-20428",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "jazzband__tablib-534",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "jazzband__tablib-540",
+      "reward": 0.5
+    },
+    {
+      "instance_id": "jazzband__tablib-547",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "jazzband__tablib-579",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "jazzband__tablib-584",
+      "reward": 0.175
+    },
+    {
+      "instance_id": "jazzband__tablib-594",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "jazzband__tablib-595",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "jazzband__tablib-596",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "jazzband__tablib-613",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "jd__tenacity-597",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "jd__tenacity-603",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "jd__tenacity-604",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "jd__tenacity-606",
+      "reward": 0.45
+    },
+    {
+      "instance_id": "jd__tenacity-609",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "jd__tenacity-610",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "jd__tenacity-611",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "jd__tenacity-614",
+      "reward": 0.05
+    },
+    {
+      "instance_id": "jd__tenacity-615",
+      "reward": 0.0
+    },
+    {
+      "instance_id": "jd__tenacity-628",
+      "reward": 0.1
+    }
+  ]
+}
