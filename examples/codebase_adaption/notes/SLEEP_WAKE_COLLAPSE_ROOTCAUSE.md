@@ -1,4 +1,11 @@
-# rollout_1 崩塌根因调研:sleep/wake 后 CUDA graph 回放陈旧 mamba 状态指针
+# rollout_1 崩塌根因调研(定案:A_log 权重损坏;CUDA graph 假设已被否证)
+
+> **2026-07-14 定案更新**:金丝雀阶梯(#1 recapture / #2 关 graph / #3 醒后补 flush /
+> #4 霰弹清零+张量指纹)否证了本文最初的 CUDA graph 指针假设。真凶由 #4 的张量指纹抓获:
+> **lr=0 下 sync-1→sync-2 之间唯一变动的张量 = `layers.0.linear_attn.A_log`
+> (-87.121→+59.931,8 引擎一致)** —— GDN 状态衰减参数在第一个训练步内被 Megatron 侧
+> 某操作改写,随后经 CPU 备份 ship 给 sglang,引擎无辜。详见"四·七"节。原文其余部分
+> 保留作为排查过程记录。
 
 日期:2026-07-14。三个网络调研 agent(sglang 仓库 / RL 框架社区 / torch_memory_saver 机制)交叉验证 + 本仓自有实验证据链。
 
@@ -117,9 +124,61 @@ capture(数十秒量级,相对 27-63min 的 rollout 可忽略);风险点:#27140 
   `mamba_ping_pong_track_buffer_size = 2 if enable_overlap_schedule else 1`,:592 正是
   #26941 指认的 `if req.mamba_ping_pong_track_buffer is None` alloc-skip 检查。
 
-### 金丝雀 #2:`--sglang-disable-cuda-graph`(跑中,run `swecl-4b-nograph-lr0`)
-判别:恢复健康 → graph 有罪但 recapture 覆盖不到;照崩 → graph 全线无罪,转 mamba cache 子树。
-备用:金丝雀 #3 `--sglang-disable-radix-cache`、#4 `--sglang-disable-overlap-schedule`(已备好)。
+### 金丝雀 #2:`--sglang-disable-cuda-graph` —— 照崩,graph 全线无罪
+run `swecl-4b-nograph-lr0`:纯 eager decode,rollout_0 ACT 0.2092 → rollout_1 **0.0000**。
+且 r1 raw_reward=0.03778 与 #1 的 0.03775 几乎逐位相同 → 损坏是**确定性的**,不是竞态。
+
+### 金丝雀 #3:醒后补 flush —— 照崩
+run `swecl-4b-postflush-lr0`:resume(KV) 后在活内存上重跑 flush_cache(重置簿记)。
+rollout_0 ACT 0.2437 → rollout_1 **0.0000**。"paused 期间 flush 重置写丢"理论死
+(后经代码核实 mapping 张量本就在 region 外)。
+
+### 轮位/题位分析(零成本,方向修正两次)
+1. 按 issue 内轮位:rollout_1 每题第 1 轮空命令率 43-49%(rollout_0 同位 1-4%)——
+   最初误读为"醒后首批请求就坏"。
+2. 按 episode 题位(trial_pos)修正:p0(episode 首题,memory 为空)已病(空命令 24-27%,
+   0 成功),病随题位加深(最高 52%)→ **memory/WRITE 通道是放大器不是源头**
+   (rollout_1 里发现中毒 memory:命令碎片、错仓库路径、模板占位语——都是退化 ACT 的下游产物)。
+3. 数据混杂因子排除:三金丝雀 rollout_1 题集相同(seed 固定)但这些题 baseline 表现良好
+   (均值 0.259 高于 rollout_0 批次),且 **8 题同时出现在两轮:r0 解出、r1 归零** → 数据无罪。
+4. 同题同输入对照(astropy-14309,8065 字符输入逐字节相同):r1 四个副本中 3 个连贯、
+   1 个胡话命令 → 逐请求 ~25% 概率退化,"轻度全局变笨"画像。
+
+### 决定性反常:lr=0 下 actor≠ref(指标考古)
+- rollout_0(所有 run):`rollout/log_probs == rollout/ref_log_probs` 到 16 位小数;
+- rollout_1(所有 run):actor ≈ -0.80~-0.83 vs ref ≈ -1.09~-1.13,**gap≈+0.3**;
+- fix2(lr=1e-6,5 步):step0 gap=0.0000,step1-4 gap 恒 +0.29~0.30(与 lr 无关!)。
+→ 第一个训练步之后 **Megatron actor 权重 ≠ ckpt**;而发给 sglang 的权重来自
+`weights_backuper.get("actor")`(CPU 备份,step 末刷新)→ **sync-2 ship 的就是坏权重,
+引擎所有修复自然全部无效**。
+
+## 四·七、真凶定案:A_log(金丝雀 #4 张量指纹)
+
+run `swecl-4b-zeropool-lr0` 在 bind 的 mixin 里加了两件仪表:①醒后霰弹清零(req_to_token、
+mamba conv/temporal 含 pad slot 0、KV buffer);②每次 resume 末尾打印全部 83 个 named_buffers
++ 40 个抽样参数的校验和。结果(8 引擎完全一致,ray worker 日志逐引擎核验):
+
+```
+sync-1 后 vs sync-2 后:103 个指纹张量,唯一变动:
+  model.layers.0.linear_attn.A_log:  -8.712109375e+01  →  +5.993066406e+01
+```
+
+- A_log = GDN 线性注意力的状态衰减参数(前向:`g = -A_log.exp() * softplus(a + dt_bias)`);
+  它坏了 → 每个 token 的递归记忆错误衰减 → "流畅但变笨、~25% 回合脱轨"完全吻合;
+- 附带确认:weights 区域醒来后参数页为**全零**(weights cpu_backup 关闭),一切靠传输覆盖;
+  层 31 是 full-attention 层(无 A_log),指纹只采到 layer 0 的 A_log,其余 linear 层大概率同病;
+- `mark_param_dtype(A_log, fp32)`(miles_plugins/models/qwen3_5.py:81)是**死代码**:
+  `enforce_marked_param_dtypes` 全库无调用点,运行时 A_log 同样被 Float16Module 铸成 bf16;
+- 改写发生在 train_actor 的第一个训练步内(init 备份 → step0 末备份之间);嫌疑操作:
+  optimizer.step 的 master→param 回写(--use-precision-aware-optimizer/--optimizer-cpu-offload
+  /--overlap-cpu-optimizer-d2h-h2d)、switch(ref)/switch(actor) 恢复、Megatron TMS 睡醒。
+- **金丝雀 #5(探针)已就绪**:actor.py train_actor 各节点打印 A_log(GPU + CPU 备份)校验和,
+  日志直接点名改写者。
+
+### 尚待办
+- #5 定位改写操作 → 修复(候选:修 fp32 死代码路径 / 去掉嫌疑优化器旗标 / 修 backup 时序);
+- 修复后 lr=0 金丝雀复验(判据:rollout_1 ACT 恢复 + actor==ref 16 位 + A_log 指纹不变);
+- 恢复正式训练(seq 24576);向 miles 上游报 bug。
 
 ## 五、行动方案
 
