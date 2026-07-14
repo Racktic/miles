@@ -16,7 +16,6 @@ try:
 except ImportError:
     pass
 
-from miles.backends.megatron_utils.fp32_param_utils import mark_param_dtype
 from miles.backends.training_utils.cp_utils import build_gdn_cp_context
 
 from .hf_attention import HuggingfaceAttention
@@ -73,12 +72,20 @@ class Qwen3_5GatedDeltaNet(nn.Module):
         self.dt_bias = nn.Parameter(torch.ones(self.num_v_heads))
 
         A = torch.empty(self.num_v_heads).uniform_(0, 16)
-        # Qwen3.5 ships A_log in fp32; Qwen3.6 reverted the HF weight to bf16.
-        # We still hold it in fp32 here for engineering simplicity (no special
-        # path for 3.6) — this matches the SGLang implementation, which also
-        # keeps A_log in fp32 regardless of the HF dtype.
-        self.A_log = nn.Parameter(torch.log(A).to(torch.float32))
-        mark_param_dtype(self.A_log, torch.float32)
+        # A_log follows config.dtype (bf16) like every other parameter. It was
+        # previously forced to fp32 (parity with sglang's internal storage),
+        # but a lone fp32 parameter among bf16 ones gets its own distributed-
+        # optimizer dtype bucket, and with --optimizer-cpu-offload the first
+        # optimizer.step() deterministically overwrites it with garbage even
+        # at lr=0 (verified 2026-07-14: layer-0 A_log sum -87.121 -> +59.931,
+        # reproducible across runs; this poisoned every weight sync after the
+        # first train step and collapsed rollout_1). bf16 A_log matches the
+        # Qwen3.6 HF checkpoint practice; sglang still upcasts to fp32 on its
+        # side after the transfer. Forward already computes in fp32 via
+        # `self.A_log.float()`.
+        self.A_log = nn.Parameter(
+            torch.log(A).to(config.dtype if config.dtype is not None else torch.get_current_dtype())
+        )
 
         # HF stores this norm in fp32, but unlike A_log its precision impact is
         # negligible and sglang runs it in bf16 on the rollout side — follow
