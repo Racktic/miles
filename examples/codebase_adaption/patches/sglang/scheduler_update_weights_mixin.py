@@ -284,11 +284,61 @@ class SchedulerUpdateWeightsMixin:
             logger.info("Post-resume cache flush (rewrite pool bookkeeping on live memory)")
             self.flush_cache()
 
+            # Shotgun-zero every kv_cache-tag tensor whose contents could be
+            # read before being rewritten (flush only resets bookkeeping
+            # indices, never contents; the mamba pad slot 0 in particular is
+            # never re-allocated so alloc-time zeroing never touches it).
+            try:
+                mr = self.tp_worker.model_runner
+                pool = mr.req_to_token_pool
+                pool.req_to_token.zero_()
+                mamba_pool = getattr(pool, "mamba_pool", None)
+                if mamba_pool is not None:
+                    for _t in mamba_pool.mamba_cache.conv:
+                        _t.zero_()
+                    mamba_pool.mamba_cache.temporal.zero_()
+                kv_pool = getattr(mr, "token_to_kv_pool", None)
+                for _attr in ("k_buffer", "v_buffer", "kv_buffer"):
+                    _bufs = getattr(kv_pool, _attr, None)
+                    if _bufs is not None:
+                        for _t in _bufs:
+                            _t.zero_()
+                logger.info("Post-resume shotgun zero of kv_cache-tag contents done")
+            except Exception as exc:
+                logger.warning(f"Post-resume shotgun zero failed (non-fatal): {exc}")
+
         if self.cuda_graphs_need_recapture:
             self.recapture_cuda_graphs_after_weight_update()
             self.cuda_graphs_need_recapture = False
 
+        self._log_model_state_checksums(f"resume(tags={sorted(tags)})")
+
         return ResumeMemoryOccupationReqOutput()
+
+    def _log_model_state_checksums(self: Scheduler, tag_str: str) -> None:
+        """Diagnostic fingerprints: under lr=0 every buffer/parameter sum must
+        be identical across sync cycles; any drift names the corrupted tensor."""
+        try:
+            model = self.tp_worker.model_runner.model
+            with torch.no_grad():
+                buf_sums = [
+                    f"{name}={float(buf.double().sum().item()):.9e}"
+                    for name, buf in model.named_buffers()
+                    if buf.numel()
+                ]
+                param_sums = []
+                for name, p in model.named_parameters():
+                    if any(k in name for k in ("embed_tokens.weight", "layers.0.", "layers.31.", "lm_head")):
+                        param_sums.append(f"{name}={float(p.double().sum().item()):.9e}")
+                    if len(param_sums) >= 40:
+                        break
+            logger.info(f"[state-checksum] {tag_str} n_buffers={len(buf_sums)}")
+            for i in range(0, len(buf_sums), 8):
+                logger.info(f"[state-checksum] buf: {' | '.join(buf_sums[i:i+8])}")
+            for i in range(0, len(param_sums), 4):
+                logger.info(f"[state-checksum] par: {' | '.join(param_sums[i:i+4])}")
+        except Exception as exc:
+            logger.warning(f"state-checksum failed (non-fatal): {exc}")
 
     def check_weights(self: Scheduler, recv_req: CheckWeightsReqInput):
         try:
