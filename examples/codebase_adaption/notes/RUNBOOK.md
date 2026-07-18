@@ -244,6 +244,21 @@ weights-only 加载定格 ckpt + `--start-rollout-id 0` + `CODEBASE_EVAL_BEFORE_
 (VL 模型缺 `model.visual.*`/`mtp.*` 共 312 个张量)——**勿用于 VL 完整导出**;它不碰优化器
 键(与 W1 无关,iter_31 实测 A_log 哨兵逐位一致),仅当只需要语言权重做分析时可用。
 
+### W8 提交环境毒变量 + supervise 终态解析(2026-07-18 双事故)
+
+1. **提交侧 shell 的证书变量会毒死容器内全部 https**。sbatch 默认 `--export=ALL`;若提交
+   shell(如 Claude 会话)带 `SSL_CERT_FILE=/etc/pki/...`(RHEL9 宿主路径),它进入 Ubuntu
+   容器后指向不存在的文件 → python `SSLError(FileNotFoundError)`、wandb Go 侧
+   `x509: certificate signed by unknown authority`,train.py 在 init_tracking 即崩。
+   防线(已双侧内置):run 脚本与 sbatch 模板开头 `unset SSL_CERT_FILE SSL_CERT_DIR
+   CURL_CA_BUNDLE REQUESTS_CA_BUNDLE ...`。新增提交入口时记得带上。
+2. **不要 grep `ray job status` 的人类输出判终态**——失败时它打小写 `Job '...' failed`,
+   没有大写 FAILED 枚举,解析永远为空 → supervise 误走不可达分支,**健康 run 也会在
+   ~10 分钟被误杀**。正确做法(已内置 `_poll_status`):dashboard HTTP API
+   `curl http://127.0.0.1:8265/api/jobs/` 的 JSON `status` 字段(大写枚举)。
+3. 附带现象:`ray job logs -f` 对已死 job 每次重连都全量重放日志,.out 会以 ~5s 一轮膨胀;
+   状态解析修好后循环会在终态 ~75s 内收敛,该现象自然有界。
+
 ## 9. 故障速查
 
 | 症状 | 原因 | 操作 |
@@ -255,3 +270,5 @@ weights-only 加载定格 ckpt + `--start-rollout-id 0` + `CODEBASE_EVAL_BEFORE_
 | `FATAL ... session directory` 后整个 job 死 | 旧版本无故障隔离 | 用最新代码(已含 episode 级隔离);重启 |
 | Ray 起不来 / 端口占用 | 上次残留 | run 脚本自带 `ray stop --force`;顽固时手动 kill gcs_server/raylet |
 | /dev/shm OOM | plasma 超配 | 确认 `CODEBASE_OBJECT_STORE_MEM` 生效(默认 16GB) |
+| 启动即崩 `x509 unknown authority` / `SSLError(FileNotFoundError)` | 提交 shell 的 SSL_CERT_* 混进容器 | 见 W8.1;确认 run/sbatch 的 unset 行还在 |
+| supervised run ~10 分钟无故退出, 日志只有"日志尾随断开"刷屏 | 终态解析为空误判不可达 | 见 W8.2;确认 `_poll_status` 走 HTTP API |

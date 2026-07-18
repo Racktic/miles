@@ -15,6 +15,9 @@
 
 set -uo pipefail
 export PYTHONUNBUFFERED=1
+# 剥离提交侧 shell 可能携带的宿主证书路径(--export=ALL 会带进 Ubuntu 容器毒死一切
+# https, 2026-07-18 事故, RUNBOOK W8); run 脚本内还有同款兜底, 双保险。
+unset SSL_CERT_FILE SSL_CERT_DIR CURL_CA_BUNDLE REQUESTS_CA_BUNDLE NODE_EXTRA_CA_CERTS GIT_SSL_CAINFO PIP_CERT
 SD=/home/qixinx/miles/examples/codebase_adaption
 export CODEBASE_RAY_SUPERVISED=1   # 监督式提交: dashboard 打嗝不再连坐训练(2026-07-18)
 : "${WRAP:?WRAP=scripts/train_4b_write_{delta,downstream}_6p6.sh required}"

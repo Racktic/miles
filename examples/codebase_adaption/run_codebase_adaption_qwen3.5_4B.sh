@@ -1,6 +1,12 @@
 #!/bin/bash
 set -ex
 
+# 提交侧 shell 可能携带宿主(RHEL9)证书路径变量, sbatch --export=ALL 会把它们带进
+# Ubuntu 容器, 而容器内该路径不存在 → python/wandb 的全部 https 报
+# SSLError(FileNotFoundError)/x509 unknown authority(2026-07-18 事故, 见 RUNBOOK W8)。
+# 容器内一律使用镜像自带 CA。
+unset SSL_CERT_FILE SSL_CERT_DIR CURL_CA_BUNDLE REQUESTS_CA_BUNDLE NODE_EXTRA_CA_CERTS GIT_SSL_CAINFO PIP_CERT
+
 NGPU="${CODEBASE_NGPU:-$(nvidia-smi -L 2>/dev/null | wc -l)}"; [ "${NGPU:-0}" -ge 1 ] || NGPU=4
 TP="${CODEBASE_TP:-2}"
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-$(seq -s, 0 $((NGPU-1)))}"
@@ -317,9 +323,15 @@ if [ "${RAY_SUPERVISED}" = "1" ]; then
   TAIL_PID=$!
   FINAL=""
   unreachable=0
+  # 状态查询走 dashboard HTTP API(JSON 的 status 字段是大写枚举)。不要 grep
+  # `ray job status` 的人类输出——失败时它打小写 "Job '...' failed", 无 FAILED 枚举,
+  # 会被永远解析为空 → 误走不可达分支 → 健康 run 也会 10 分钟被误杀(2026-07-18 事故)。
+  _poll_status() {
+    curl -s --max-time 10 "http://127.0.0.1:8265/api/jobs/" \
+      | python3 -c "import json,sys;print(next((j.get('status','') for j in json.load(sys.stdin) if j.get('submission_id')=='${RAY_SUBMISSION_ID}'),''))" 2>/dev/null
+  }
   while :; do
-    st=$(ray job status --address="http://127.0.0.1:8265" "${RAY_SUBMISSION_ID}" 2>/dev/null \
-         | grep -oE "SUCCEEDED|FAILED|STOPPED|RUNNING|PENDING" | head -1)
+    st=$(_poll_status)
     if [ -z "${st}" ]; then
       unreachable=$((unreachable+1))
       if [ ${unreachable} -ge 20 ]; then
@@ -332,8 +344,7 @@ if [ "${RAY_SUPERVISED}" = "1" ]; then
     case "${st}" in
       SUCCEEDED|FAILED|STOPPED)
         sleep 15
-        st2=$(ray job status --address="http://127.0.0.1:8265" "${RAY_SUBMISSION_ID}" 2>/dev/null \
-              | grep -oE "SUCCEEDED|FAILED|STOPPED" | head -1)
+        st2=$(_poll_status)
         if [ "${st2}" = "${st}" ]; then FINAL="${st}"; break; fi
         ;;
     esac
