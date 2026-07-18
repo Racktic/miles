@@ -453,6 +453,9 @@ def log_train_step(
             log_dict_out[f"train/{role_tag}{key}"] = val
 
     log_dict_out["train/step"] = accumulated_step_id
+    # 行内附带 rollout/step: wandb 按行内共现配对 x/y, 使 train/* 也能在
+    # x=rollout/step 的工作区视图下显示(2026-07-14 用户要求, 与 eval 侧同一处理)。
+    log_dict_out["rollout/step"] = rollout_id
 
     if should_log is None:
         should_log = dist.get_rank() == 0

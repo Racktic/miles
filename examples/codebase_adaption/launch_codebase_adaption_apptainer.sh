@@ -59,4 +59,17 @@ if [[ "${CODEBASE_SGLANG_RECAPTURE_PATCH:-0}" == "1" ]]; then
   echo "[launch] sglang recapture patch ENABLED (PR #27140 port): ${PATCHED_MIXIN}"
 fi
 
+# Opt-in Megatron dist-ckpt patch (ported from radixark/Megatron-LM PR #66):
+# dp_reshardable optimizer param_state resume — the rank-0-only common list is
+# per-rank-length; adopt the loaded rank's structure and carry `step` forward.
+# Without this, ANY full resume (with optimizer state) of ckpts saved under
+# --optimizer-cpu-offload/--use-precision-aware-optimizer fails with
+# "Cannot merge two lists with different lengths" (2026-07-15 incident).
+if [[ "${CODEBASE_MEGATRON_CKPT_PATCH:-0}" == "1" ]]; then
+  PATCHED_DICT_UTILS="${SCRIPT_DIR}/patches/megatron/dict_utils.py"
+  [[ -f "${PATCHED_DICT_UTILS}" ]] || { echo "Missing patched dict_utils: ${PATCHED_DICT_UTILS}" >&2; exit 1; }
+  BIND_ARGS+=(--bind "${PATCHED_DICT_UTILS}:/root/Megatron-LM/megatron/core/dist_checkpointing/dict_utils.py")
+  echo "[launch] Megatron ckpt-resume patch ENABLED (PR #66 port): ${PATCHED_DICT_UTILS}"
+fi
+
 exec apptainer exec --nv "${BIND_ARGS[@]}" "${MILES_SIF}" bash "${INNER_SCRIPT}"

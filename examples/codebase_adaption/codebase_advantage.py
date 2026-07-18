@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from typing import Any
 
@@ -48,6 +49,79 @@ def downstream_improve_rewards(
             continue
         out[k] = _mean(nxt) - _mean(prv)
     return out
+
+
+def gated_downstream_rewards(
+    rewards: list[float],
+    format_ok: dict[int, bool],
+    *,
+    bonus: float = 0.1,
+) -> dict[int, float]:
+    """WRITE rewards for the actwrite experiment (user-approved 2026-07-16).
+
+    R(M_k) = format_ok_k * reward[k+1] + bonus * format_ok_k
+
+    - ``reward[k+1]`` is the NEXT issue's raw train reward (no delta): the
+      mean-reversion bias of delta rewards (corr(R, gain_k) = -0.736, see
+      WRITE_COLLAPSE_ANALYSIS_0714) came from subtracting one's own past;
+      instance difficulty is instead normalized by GRPO's within-group
+      advantage (all samples of a group face the same next issue).
+    - ``format_ok_k``: the stored memory contains BOTH required section
+      headers. Dense, unbiased, cheap; targets the 94%-vs-33% compliance
+      gate (post-failure rant mode) that ACT-only training never moved.
+    - The bonus keeps a positive gradient toward well-formed memories even
+      when the next issue fails — exactly the situation where rant mode
+      dominates. Memories with no downstream issue are omitted (as legacy).
+    """
+    out: dict[int, float] = {}
+    for k in range(len(rewards) - 1):
+        f = 1.0 if format_ok.get(k) else 0.0
+        out[k] = f * float(rewards[k + 1]) + float(bonus) * f
+    return out
+
+
+_RK_HEADER = re.compile(r"^###\s*Repository Knowledge\s*$", re.M)
+_LP_HEADER = re.compile(r"^###\s*Lessons\s*&\s*Pitfalls\s*$", re.M)
+_ANY_HEADER = re.compile(r"^###\s+.*$", re.M)
+_BULLET = re.compile(r"^\s*[-*]\s+\S")
+# Prompt/scaffold markers that must never appear in a memory (prompt-echo hack).
+_PROMPT_MARKERS = ("=== Brief ===", "=== Repository Knowledge ===", "COMPLETE_TASK_AND_SUBMIT")
+
+
+def _section_bullets(text: str) -> int:
+    return sum(1 for ln in text.splitlines() if _BULLET.match(ln))
+
+
+def memory_format_ok(memory: str, prev_memory: str | None = None, *, min_bullets: int = 2) -> bool:
+    """Strict format gate (2026-07-17, hardened after reward-hacking on the loose
+    check: empty two-header shells, prompt echo, repeated-header collapse, and
+    verbatim copy of the previous memory all scored format_ok=True and earned the
+    bonus). Requires an actual well-formed memory:
+
+    1. EXACTLY one ``### Repository Knowledge`` and one ``### Lessons & Pitfalls``
+       header, each on its own line, and NO other ``###`` headers (kills
+       multi-header collapse and prompt echo that dumps extra headers).
+    2. No prompt/scaffold markers anywhere (kills copying the injected prompt).
+    3. Each of the two sections has >= ``min_bullets`` non-empty bullet lines
+       (kills the empty two-header shell).
+    4. Not a verbatim copy of ``prev_memory`` (kills forward-copying garbage).
+    """
+    m = memory or ""
+    if len(_RK_HEADER.findall(m)) != 1 or len(_LP_HEADER.findall(m)) != 1:
+        return False
+    if len(_ANY_HEADER.findall(m)) != 2:
+        return False
+    if any(mark in m for mark in _PROMPT_MARKERS):
+        return False
+    if prev_memory is not None and m.strip() == (prev_memory or "").strip():
+        return False
+    heads = list(_ANY_HEADER.finditer(m))
+    for i, h in enumerate(heads):
+        start = h.end()
+        end = heads[i + 1].start() if i + 1 < len(heads) else len(m)
+        if _section_bullets(m[start:end]) < min_bullets:
+            return False
+    return True
 
 
 def reward_post_process(args, samples):

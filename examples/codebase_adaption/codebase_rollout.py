@@ -873,11 +873,55 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
 
         if not input.evaluation:
             gains = [float(o.get("gain", 0.0)) for o in outcomes]
-            write_rewards = downstream_improve_rewards(
-                gains,
-                window=int(getattr(args, "codebase_write_improve_k", 1)),
-                k0_mode=str(getattr(args, "codebase_write_k0_mode", "improve")),
-            )
+            # ACT-only 实验开关(2026-07-14 用户决策): WRITE 照常发生(记忆继续写/用),
+            # 但 WRITE 样本不进训练集、不给 reward——只训 ACT, 观察记忆行为的自然演化。
+            _act_only = os.environ.get("CODEBASE_TRAIN_ACT_ONLY", "").strip().lower() in {
+                "1", "true", "yes", "on",
+            }
+            if _act_only:
+                for wp in write_points:
+                    wp["audit"]["trained"] = False
+                    wp["audit"]["act_only_skip"] = True
+                write_points = []
+            # WRITE reward 模式(三组消融, 与 alchemy 对齐; CODEBASE_WRITE_REWARD_MODE):
+            #   delta(缺省/空)   R(M_k)=mean(gain[k+1..])-mean(gain[..k])  —— 均值回归 bias 对照
+            #   downstream        R(M_k)=reward[k+1]                        —— 裸下游, 无 format 无 delta
+            #   gated_downstream  R(M_k)=format_ok*(reward[k+1]+bonus)      —— 严格 format 门控(2026-07-17)
+            _write_mode = os.environ.get("CODEBASE_WRITE_REWARD_MODE", "").strip().lower()
+            rewards_seq = [float(o.get("reward", 0.0)) for o in outcomes]
+            if _write_mode == "gated_downstream":
+                from examples.codebase_adaption.codebase_advantage import (
+                    gated_downstream_rewards,
+                    memory_format_ok,
+                )
+                fmt_by_k = {
+                    int(wp["rewrite_idx"]): memory_format_ok(
+                        wp["audit"].get("memory") or "",
+                        wp["audit"].get("previous_memory") or "",
+                    )
+                    for wp in write_points
+                }
+                write_rewards = gated_downstream_rewards(
+                    rewards_seq,
+                    fmt_by_k,
+                    bonus=float(os.environ.get("CODEBASE_WRITE_FORMAT_BONUS", "0.1")),
+                )
+                _write_signal = "format_gated_downstream"
+            elif _write_mode == "downstream":
+                # 裸下游: R(M_k)=reward[k+1]; 末位无下游则省略。GRPO 组内归一化承担难度。
+                write_rewards = {
+                    k: rewards_seq[k + 1] for k in range(len(rewards_seq) - 1)
+                }
+                fmt_by_k = None
+                _write_signal = "downstream_raw"
+            else:
+                fmt_by_k = None
+                write_rewards = downstream_improve_rewards(
+                    gains,
+                    window=int(getattr(args, "codebase_write_improve_k", 1)),
+                    k0_mode=str(getattr(args, "codebase_write_k0_mode", "improve")),
+                )
+                _write_signal = "downstream_gain_improve"
             for wp in write_points:
                 k = int(wp["rewrite_idx"])
                 if k not in write_rewards:
@@ -888,14 +932,43 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
                 wp["audit"]["trained"] = True
                 wp["audit"]["write_reward"] = float(write_rewards[k])
                 wp["audit"]["downstream_trial_pos"] = k + 1
+                if _write_mode == "gated_downstream":
+                    wp["audit"]["format_ok"] = bool(fmt_by_k.get(k))
+                    wp["audit"]["write_signal"] = _write_signal
                 sample.metadata = {
                     **meta,
                     **(sample.metadata or {}),
                     "episode_id": episode_id,
                     "downstream_trial_pos": k + 1,
-                    "write_signal": "downstream_gain_improve",
+                    "write_signal": _write_signal,
                 }
                 samples.append(sample)
+    except Exception as episode_exc:
+        # 故障隔离(2026-07-15): 单 episode 的环境/容器故障(如 apptainer sandbox 构建
+        # 偶发 FATAL)不允许炸掉整个训练 job。当前题记 env_error(0 分), 保留本 episode
+        # 已完成各题的样本, 提前结束该 episode。真正的代码 bug 也会走到这里——所以必须
+        # 打全量 traceback, 且 metrics 里能看到 env_error 率(见 outcome.eval_status)。
+        import traceback as _tb
+        _loc = locals()
+        _iid = str(_loc.get("instance_id", "?"))
+        print(
+            f"[codebase_rollout] EPISODE ABORTED by exception (episode_id={episode_id}, "
+            f"instance={_iid}): {episode_exc}\n" + _tb.format_exc(),
+            flush=True,
+        )
+        try:
+            outcomes.append({
+                "instance_id": _iid,
+                "reward": 0.0,
+                "baseline_reward": baselines.get(_iid, 0.0),
+                "gain": -baselines.get(_iid, 0.0),
+                "success": False,
+                "turns": len(_loc.get("transcript") or []),
+                "trial_pos": int(_loc.get("trial_pos", len(outcomes))),
+                "eval_status": "env_error",
+            })
+        except Exception:
+            pass
     finally:
         try:
             task._cleanup_container()

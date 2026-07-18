@@ -164,5 +164,8 @@ def log_eval_rollout_data(rollout_id, args, data, extra_metrics=None) -> bool:
         for key, value in eval_curve.items():
             log_dict[f"eval/{name}/{key}"] = value
     log_dict["eval/step"] = compute_rollout_step(args, rollout_id)
+    # 同一行里附带 rollout/step(同值): wandb 图表按"行内共现"配对 x/y,
+    # 工作区 x 轴设为 rollout/step 时 eval 曲线才有数据(2026-07-14 用户要求)。
+    log_dict["rollout/step"] = log_dict["eval/step"]
     tracking_utils.log(args, log_dict, step_key="eval/step")
     return True

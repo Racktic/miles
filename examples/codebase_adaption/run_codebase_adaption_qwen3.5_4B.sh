@@ -79,6 +79,16 @@ CKPT_ARGS=(
   --load ${SAVE_DIR}
   --save ${SAVE_DIR}
 )
+# --save-hf 默认开启(2026-07-16 用户要求): 每次存 ckpt 时经 Megatron AutoBridge
+# 额外导出完整 HF 模型(含未训练的 vision 塔, 官方机制, 见 notes/RUNBOOK.md W7),
+# 评测/分发即取即用。缺省路径 = ckpt 的兄弟目录 hf/iter_{rollout_id};
+# CODEBASE_SAVE_HF 可覆盖路径, 设为 off/0/none 可关闭。
+SAVE_HF_DEFAULT="${SAVE_DIR%/ckpt}/hf/iter_{rollout_id}"
+CODEBASE_SAVE_HF="${CODEBASE_SAVE_HF:-${SAVE_HF_DEFAULT}}"
+case "${CODEBASE_SAVE_HF}" in
+  ""|0|none|None|false|False|off|Off) ;;
+  *) CKPT_ARGS+=(--save-hf "${CODEBASE_SAVE_HF}") ;;
+esac
 case "${CODEBASE_SAVE_INTERVAL:-0}" in
   ""|0|none|None|false|False|off|Off)
     export MILES_DISABLE_FINAL_SAVE=1
@@ -128,8 +138,15 @@ case "${CODEBASE_EVAL_INTERVAL:-3}" in
       --eval-interval ${CODEBASE_EVAL_INTERVAL:-3}
       --eval-prompt-data heldout ${CODEBASE_EVAL_PROMPT_DATA:-${SCRIPT_DIR}/data/heldout_episodes.jsonl}
       --n-samples-per-eval-prompt ${CODEBASE_N_EVAL_SAMPLES:-1}
-      --skip-eval-before-train
     )
+    # CODEBASE_EVAL_BEFORE_TRAIN=1: drop --skip-eval-before-train so eval fires at
+    # rollout_id==0 BEFORE any training step. Used for ckpt evaluation: load a frozen
+    # ckpt weights-only (+ --start-rollout-id 0 via CODEBASE_TRAIN_EXTRA_ARGS), eval
+    # runs on the exact synced weights; the one wasted rollout after it persists
+    # nothing (save disabled). Default unchanged: skip flag kept.
+    if [[ "${CODEBASE_EVAL_BEFORE_TRAIN:-0}" != "1" ]]; then
+      EVAL_ARGS+=(--skip-eval-before-train)
+    fi
     ;;
 esac
 
@@ -152,10 +169,22 @@ OPTIMIZER_ARGS=(
   --weight-decay 0.1
   --adam-beta1 0.9
   --adam-beta2 0.98
-  --optimizer-cpu-offload
-  --overlap-cpu-optimizer-d2h-h2d
-  --use-precision-aware-optimizer
 )
+# CODEBASE_NO_OFFLOAD=1 drops the HybridDeviceOptimizer (cpu-offload) stack and
+# matches the stock scripts/run-qwen3.5-4B.sh optimizer config. Both A_log-style
+# fp32-bucket corruption and the dp_reshardable common.pt step poisoning
+# (notes/CKPT_RESUME_BUGS_0715.md) live exclusively in the offload path; without
+# it checkpoints support native full resume. 4B@TP2/DP4 adds ~6GB/GPU fp32
+# optimizer shards — first train step after switching is the memory validation,
+# fall back to offload on OOM. First relaunch after switching MUST stay
+# weights-only (--no-load-optim): older ckpts hold HDO-format optimizer state.
+if [[ "${CODEBASE_NO_OFFLOAD:-0}" != "1" ]]; then
+  OPTIMIZER_ARGS+=(
+    --optimizer-cpu-offload
+    --overlap-cpu-optimizer-d2h-h2d
+    --use-precision-aware-optimizer
+  )
+fi
 
 PERF_ARGS=(
   --tensor-model-parallel-size ${TP}
@@ -216,6 +245,19 @@ RAY_JOB_ARGS=()
 if [ -n "${CODEBASE_RAY_NO_WAIT:-}" ]; then
   RAY_JOB_ARGS+=(--no-wait)
 fi
+# 监督式提交(2026-07-18, 用户批准): ray job submit 的前台日志尾随客户端依赖
+# dashboard 的 WebSocket, dashboard 打嗝(HTTP 500 / close 1006)会让客户端崩溃,
+# 在 sbatch 下等于整个训练被 SLURM 连坐杀掉(7/17 两起事故)。监督模式改为:
+# --no-wait 提交 + 后台自动重连的日志尾随 + 前台轮询 ray job status 判生死
+# (容忍 dashboard 瞬断)。本脚本保持前台运行以维持容器与 ray 头存活。
+RAY_SUPERVISED=0
+case "${CODEBASE_RAY_SUPERVISED:-0}" in
+  1|true|True|yes|on) RAY_SUPERVISED=1 ;;
+esac
+if [ "${RAY_SUPERVISED}" = "1" ]; then
+  RAY_SUBMISSION_ID="cb-${RUN_ID}-$(date +%s)"
+  RAY_JOB_ARGS+=(--no-wait --submission-id "${RAY_SUBMISSION_ID}")
+fi
 RUNTIME_ENV_JSON="{
   \"env_vars\": {
     \"PYTHONPATH\": \"${MILES_DIR}:${PYTHONPATH:-}\",
@@ -235,6 +277,7 @@ RUNTIME_ENV_JSON="{
     \"CODEBASE_NO_MEMORY\": \"${CODEBASE_NO_MEMORY:-}\",
     \"CODEBASE_CONTEXT_MAX_TOKENS\": \"${CODEBASE_CONTEXT_MAX_TOKENS:-240000}\",
     \"CODEBASE_CONTEXT_RESERVE_TOKENS\": \"${CODEBASE_CONTEXT_RESERVE_TOKENS:-500}\",
+    \"TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC\": \"${TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC:-3600}\",
     \"WANDB_API_KEY\": \"${WANDB_API_KEY}\"
   }
 }"
@@ -253,4 +296,54 @@ ray job submit --address="http://127.0.0.1:8265" \
   ${MEGATRON_ARGS[@]} \
   ${SGLANG_ARGS[@]} \
   ${MISC_ARGS[@]} \
-  ${WANDB_ARGS[@]}
+  ${WANDB_ARGS[@]} \
+  ${CODEBASE_TRAIN_EXTRA_ARGS:-}
+
+# ---- 监督循环(仅 CODEBASE_RAY_SUPERVISED=1;上面的 submit 因 --no-wait 秒回)----
+if [ "${RAY_SUPERVISED}" = "1" ]; then
+  set +e
+  set +x
+  echo "[supervise] submission_id=${RAY_SUBMISSION_ID}; 日志尾随自动重连 + status 轮询开始"
+  TAIL_STOP="/tmp/.ray-tail-stop-${RAY_SUBMISSION_ID}"
+  rm -f "${TAIL_STOP}"
+  (
+    while [ ! -f "${TAIL_STOP}" ]; do
+      ray job logs --address="http://127.0.0.1:8265" -f "${RAY_SUBMISSION_ID}" 2>/dev/null
+      [ -f "${TAIL_STOP}" ] && break
+      echo "[supervise] 日志尾随断开, 5s 后重连"
+      sleep 5
+    done
+  ) &
+  TAIL_PID=$!
+  FINAL=""
+  unreachable=0
+  while :; do
+    st=$(ray job status --address="http://127.0.0.1:8265" "${RAY_SUBMISSION_ID}" 2>/dev/null \
+         | grep -oE "SUCCEEDED|FAILED|STOPPED|RUNNING|PENDING" | head -1)
+    if [ -z "${st}" ]; then
+      unreachable=$((unreachable+1))
+      if [ ${unreachable} -ge 20 ]; then
+        echo "[supervise] status 连续 ${unreachable} 次不可达(~10min), 判定 ray 头已死"
+        FINAL="UNREACHABLE"; break
+      fi
+      sleep 30; continue
+    fi
+    unreachable=0
+    case "${st}" in
+      SUCCEEDED|FAILED|STOPPED)
+        sleep 15
+        st2=$(ray job status --address="http://127.0.0.1:8265" "${RAY_SUBMISSION_ID}" 2>/dev/null \
+              | grep -oE "SUCCEEDED|FAILED|STOPPED" | head -1)
+        if [ "${st2}" = "${st}" ]; then FINAL="${st}"; break; fi
+        ;;
+    esac
+    sleep 60
+  done
+  touch "${TAIL_STOP}"
+  kill "${TAIL_PID}" 2>/dev/null
+  echo "[supervise] 训练终态: ${FINAL}"
+  case "${FINAL}" in
+    SUCCEEDED) exit 0 ;;
+    *)         exit 1 ;;
+  esac
+fi
