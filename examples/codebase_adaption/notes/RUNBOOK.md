@@ -246,9 +246,11 @@ weights-only 加载定格 ckpt + `--start-rollout-id 0` + `CODEBASE_EVAL_BEFORE_
 
 ### W8 提交环境毒变量 + supervise 终态解析(2026-07-18 双事故)
 
-1. **提交侧 shell 的证书变量会毒死容器内全部 https**。sbatch 默认 `--export=ALL`;若提交
-   shell(如 Claude 会话)带 `SSL_CERT_FILE=/etc/pki/...`(RHEL9 宿主路径),它进入 Ubuntu
-   容器后指向不存在的文件 → python `SSLError(FileNotFoundError)`、wandb Go 侧
+1. **提交侧 shell 的证书变量会毒死容器内全部 https**。sbatch 默认 `--export=ALL`;
+   **babel 登录节点(login4 实测)的系统配置给每个登录 shell 注入
+   `SSL_CERT_FILE=/etc/pki/...`(RHEL9 宿主路径),计算节点的 shell 则干净**——所以
+   "从计算节点提交一直没事、换到登录节点提交就炸"。毒变量进入 Ubuntu 容器后指向
+   不存在的文件 → python `SSLError(FileNotFoundError)`、wandb Go 侧
    `x509: certificate signed by unknown authority`,train.py 在 init_tracking 即崩。
    防线(已双侧内置):run 脚本与 sbatch 模板开头 `unset SSL_CERT_FILE SSL_CERT_DIR
    CURL_CA_BUNDLE REQUESTS_CA_BUNDLE ...`。新增提交入口时记得带上。
