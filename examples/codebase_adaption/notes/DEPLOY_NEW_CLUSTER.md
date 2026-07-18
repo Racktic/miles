@@ -34,7 +34,7 @@ sbatch (scripts/sbatch_write_ablation.sbatch)
 | # | 资产 | 大小 | 来源 | 必需性 |
 |---|---|---|---|---|
 | A1 | miles 代码 | — | `git clone -b swe_cl-memory-rl git@github.com:Racktic/miles.git`(**不要** `--recurse-submodules`,submodule 仅 experimental/swe-agent 用) | 必需 |
-| A2 | clbench 代码(含 swecl 扩展) | — | `<CLBENCH_REMOTE>`(见 §7 未决事项:截至 2026-07-18 尚未推到任何远程,只在 babel 本地) | 必需 |
+| A2 | clbench 代码(含 swecl 扩展) | — | `git clone git@github.com:Racktic/continual-learning-bench.git`(main 分支;2026-07-18 已含全部 swecl 扩展) | 必需 |
 | A3 | 外层 miles SIF | 18 GB | 二选一:① 从旧集群拷 `/data/user_data/qixinx/images/miles_dev-202606081341.sif`;② 重建 `apptainer build miles_dev.sif docker://radixark/miles:dev-202606081341`(SIF label 已核实此为原始镜像) | 必需 |
 | A4 | 240 题 issue SIF 库 | ~306 GB / 249 个 | HF 私有数据集 `Racktic/swebench_sifs`(下载需有 Racktic 读权限的 token);**兜底重建**:官方镜像逐题 `apptainer build <id>.sif docker://swebench/sweb.eval.x86_64.<instance_id>`(instance_id 里 `__` 换 `_1776_`,见 SWE-bench 官方命名) | 必需 |
 | A5 | eval 探针 SIF(tablib/tenacity) | 259+187 MB | 重建即可:`apptainer build tablib.sif docker://pgasawa2/continual-learning-bench:tablib`(tenacity 同理) | 必需(训练内每 8 步探针 eval 用) |
@@ -76,8 +76,8 @@ curl -sI https://huggingface.co | head -1
 ```bash
 export DEPLOY_ROOT=/path/to/your/storage        # 大容量共享存储
 # 代码
-git clone -b swe_cl-memory-rl git@github.com:Racktic/miles.git  $HOME/miles
-git clone <CLBENCH_REMOTE>                                       $HOME/continual-learning-bench
+git clone -b swe_cl-memory-rl git@github.com:Racktic/miles.git                $HOME/miles
+git clone git@github.com:Racktic/continual-learning-bench.git                 $HOME/continual-learning-bench
 # 资产目录
 mkdir -p $DEPLOY_ROOT/{images,swebench_sifs,clbench_sifs,models,miles_pydeps}
 ```
@@ -221,10 +221,8 @@ sbatch --job-name swecl-4b-write-gated-6p6      scripts/sbatch_write_ablation.sb
 
 ## 7. 未决事项(部署前必须先解决)
 
-1. **clbench 远程仓**:swecl 扩展版 clbench 截至本文撰写只存在于 babel 本地
-   (`/home/qixinx/continual-learning-bench`,未 commit 未 push)。需要先在 GitHub 建仓
-   (如 Racktic/continual-learning-bench)、把本地全部改动 commit 后推上去,再把 §1-A2 和
-   §3.1 的 `<CLBENCH_REMOTE>` 换成真实地址。
+1. ~~clbench 远程仓~~ 已解决(2026-07-18):swecl 扩展版已全量推到
+   `github.com/Racktic/continual-learning-bench` main 分支(commit d9ca86d)。
 2. **HF 数据集核验**:`Racktic/swebench_sifs` 是私有仓,部署 agent 需持有 Racktic 读权限 token;
    下载后务必跑 §3.2 的完整性核对(babel 本地目录 251 个文件中含 pull.log/validate.sh/一个旧命名
    重复件,有效题 SIF 覆盖 240 题池即可,不必追求文件数逐一相等)。
