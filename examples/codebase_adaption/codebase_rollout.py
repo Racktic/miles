@@ -932,9 +932,11 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
                 wp["audit"]["trained"] = True
                 wp["audit"]["write_reward"] = float(write_rewards[k])
                 wp["audit"]["downstream_trial_pos"] = k + 1
+                # 审计标签必须无条件刷新: :856 的初值是 delta 名字, 只在 gated 分支
+                # 刷新曾导致 downstream 组轨迹标签撒谎(2026-07-18 误报事故)
+                wp["audit"]["write_signal"] = _write_signal
                 if _write_mode == "gated_downstream":
                     wp["audit"]["format_ok"] = bool(fmt_by_k.get(k))
-                    wp["audit"]["write_signal"] = _write_signal
                 sample.metadata = {
                     **meta,
                     **(sample.metadata or {}),
