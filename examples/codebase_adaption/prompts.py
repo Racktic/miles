@@ -75,23 +75,55 @@ def build_act_user_content(
     return "\n\n".join(parts) if parts else "(no content)"
 
 
+# ── WRITE prompt v3(2026-07-19, 用户逐字审定; 离线 A/B: 串台 12-16/30 → 2-4/30,
+#    严格合规 16-17/30 → 23-24/30): 三明治框架语 + 成败反思引导。
+#    经 CODEBASE_WRITE_PROMPT_V3=1 启用; 默认关闭, 保证现役 run 重启口径不漂移。──
+WRITE_TRANSCRIPT_PREAMBLE = (
+    "Below is the complete, read-only transcript of the task you just finished. "
+    "It is provided for reference only."
+)
+
+MEMORY_INSTRUCTION_V3_HEAD = (
+    "Above is the entire transcript - the task is OVER. Do NOT continue it, do NOT "
+    "run commands, do NOT output bash. Your ONLY job is to rewrite the memory based "
+    "on the transcript.\n\n"
+    "Reflect on the final outcome shown in the transcript before writing: if the "
+    "submission PASSED, identify what was key to this success so it can be reused "
+    "in future tasks; if it FAILED or the step budget ran out, diagnose the most "
+    "likely root cause of the failure and record it as a lesson.\n\n"
+)
+
+
 def build_write_messages(
     *,
     previous_memory: str,
     instance_messages: list[dict[str, str]],
+    v3: bool = False,
 ) -> list[dict[str, str]]:
     """WRITE messages, mirroring the offline memory-rewrite call (window=1):
 
     ``MEMORY_SYSTEM`` + the finished issue's raw turns + a final user turn
     carrying the previous memory and the two-section rewrite instruction.
+    v3=True additionally wraps the transcript in the sandwich framing and
+    prepends the outcome-reflection guidance (see WRITE prompt v3 above).
     """
     instr = MEMORY_INSTRUCTION
+    if v3:
+        instr = instr.replace(
+            "The task above is over. Update your running memory",
+            "Update your running memory",
+            1,
+        )
     prev = (previous_memory or "").strip()
     if prev:
         instr = f"Your previous memory:\n{prev}\n\n{instr}"
+    if v3:
+        instr = MEMORY_INSTRUCTION_V3_HEAD + instr
     turns = [dict(m) for m in instance_messages]
+    pre = [{"role": "user", "content": WRITE_TRANSCRIPT_PREAMBLE}] if v3 else []
     return [
         {"role": "system", "content": MEMORY_SYSTEM},
+        *pre,
         *turns,
         {"role": "user", "content": instr},
     ]

@@ -85,9 +85,10 @@ def _int_env_or_arg(env_name: str, args: Any, arg_name: str, default: int) -> in
     return int(getattr(args, arg_name, default))
 
 
-def _encode_prompt(state, messages):
+def _encode_prompt(state, messages, enable_thinking=None):
     tokenizer = state.tokenizer
-    enable_thinking = bool(getattr(state.args, "arc_enable_thinking", False))
+    if enable_thinking is None:
+        enable_thinking = bool(getattr(state.args, "arc_enable_thinking", False))
     try:
         text = tokenizer.apply_chat_template(
             messages,
@@ -818,11 +819,16 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
                 trial_messages.append(
                     {"role": "user", "content": f"FEEDBACK: {final_feedback}"}
                 )
+            # WRITE prompt v3 / WRITE 专属 thinking(2026-07-19, 离线 A/B 验证后落地):
+            # 均为 env 开关且默认关, 现役 run 重启口径不漂移。
+            _write_v3 = os.environ.get("CODEBASE_WRITE_PROMPT_V3", "").strip().lower() in {"1", "true", "yes", "on"}
+            _write_think = os.environ.get("CODEBASE_WRITE_THINKING", "").strip().lower() in {"1", "true", "yes", "on"}
             write_messages = build_write_messages(
                 previous_memory=memory,
                 instance_messages=trial_messages,
+                v3=_write_v3,
             )
-            write_ids = _encode_prompt(state, write_messages)
+            write_ids = _encode_prompt(state, write_messages, enable_thinking=True if _write_think else None)
             previous_memory = memory
             write_text, write_resp_ids, write_lps, write_finish = await _infer(url, write_ids, write_params)
             write_sample = _pack_write_sample(seed, write_ids, write_text, write_resp_ids, write_lps, write_finish, trial_pos)
@@ -842,7 +848,14 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
                 train_write_sample = _kept_w[0] if _kept_w else None
             next_memory = previous_memory
             if write_sample is not None:
-                next_memory = _strip_special(write_text) or previous_memory
+                # thinking 模式下 <think>...</think> 只训不外泄: 进记忆/下一题上下文的
+                # 一律是 </think> 之后的可见正文; think 块未闭合(截断)视为无有效输出。
+                _visible = write_text
+                if "</think>" in _visible:
+                    _visible = _visible.split("</think>", 1)[1]
+                elif "<think>" in _visible:
+                    _visible = ""
+                next_memory = _strip_special(_visible) or previous_memory
             write_record = {
                 "rewrite_idx": trial_pos,
                 "previous_memory": previous_memory,
