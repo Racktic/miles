@@ -1,53 +1,38 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Host-side launcher. Miles runs in the outer development SIF; clbench then
-# uses the host Apptainer runtime exposed below to start each issue SIF.
+# Host-side launcher (orchard cluster edition). Miles runs in the outer
+# development SIF; clbench then uses the host Apptainer runtime to start each
+# issue SIF.
+#
+# orchard has no system apptainer. We use a self-contained unprivileged install
+# (tools/install-unprivileged.sh) living on shared storage at
+# /home/qixinx/apps/apptainer. Because it is relocatable and ships its own
+# libexec/utils/etc under one prefix, the babel-era HOST_LIBS bind gymnastics
+# (copying RHEL /lib64 deps into the container) is unnecessary here: the whole
+# prefix rides in on the /home/qixinx bind and works as-is inside the SIF.
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-MILES_SIF="${CODEBASE_MILES_SIF:-/data/user_data/qixinx/images/miles_dev-202606081341.sif}"
+MILES_SIF="${CODEBASE_MILES_SIF:-/home/qixinx/images/miles_dev-202606081341.sif}"
 INNER_SCRIPT="${CODEBASE_INNER_SCRIPT:-${SCRIPT_DIR}/run_codebase_adaption_qwen3.5_4B.sh}"
-RUNTIME_ROOT="${CODEBASE_APPTAINER_RUNTIME_ROOT:-/tmp/codebase-adaption-apptainer-${UID}}"
-HOST_LIB_DIR="${RUNTIME_ROOT}/host-libs"
-VARLIB_DIR="${RUNTIME_ROOT}/varlib"
+HOST_APPTAINER_PREFIX="${CODEBASE_HOST_APPTAINER_PREFIX:-/home/qixinx/apps/apptainer}"
+
+if [[ -f "${HOST_APPTAINER_PREFIX}/env.sh" ]]; then
+  source "${HOST_APPTAINER_PREFIX}/env.sh"
+fi
 
 [[ -f "${MILES_SIF}" ]] || { echo "Missing Miles SIF: ${MILES_SIF}" >&2; exit 1; }
 [[ -f "${INNER_SCRIPT}" ]] || { echo "Missing inner training script: ${INNER_SCRIPT}" >&2; exit 1; }
 command -v apptainer >/dev/null || { echo "Host apptainer is not available" >&2; exit 1; }
 
-HOST_LIBS=(
-  /lib64/libsubid.so.3
-  /lib64/libcrypt.so.2
-  /lib64/libseccomp.so.2
-  /lib64/libaudit.so.1
-  /lib64/libsemanage.so.2
-  /lib64/libcap-ng.so.0
-  /lib64/libsepol.so.2
-  /lib64/libbz2.so.1
-  /lib64/libfuse3.so.3
-  /lib64/liblz4.so.1
-  /lib64/liblzma.so.5
-  /lib64/liblzo2.so.2
-  /lib64/libz.so.1
-  /lib64/libzstd.so.1
-)
-
-mkdir -p "${HOST_LIB_DIR}" "${VARLIB_DIR}/mnt/session"
-for source in "${HOST_LIBS[@]}"; do
-  [[ -e "${source}" ]] || { echo "Missing host Apptainer library: ${source}" >&2; exit 1; }
-  cp -L -- "${source}" "${HOST_LIB_DIR}/"
-done
+# Make the nested (in-container) apptainer calls resolve the same user-space
+# install: prepend its bin to the container PATH, and keep proot's loader
+# scratch on a writable node-local dir (cluster /tmp quirks break the default).
+export APPTAINERENV_PREPEND_PATH="${HOST_APPTAINER_PREFIX}/bin"
+export APPTAINERENV_PROOT_TMP_DIR="${PROOT_TMP_DIR:-${TMPDIR:-/tmp}/proot-${UID}}"
 
 BIND_ARGS=(
-  --bind /data,/home/qixinx
-  --bind "${VARLIB_DIR}:/var/lib/apptainer"
-  --bind /usr/bin/apptainer:/usr/bin/apptainer
-  --bind /usr/libexec/apptainer:/usr/libexec/apptainer
-  --bind /etc/apptainer:/etc/apptainer
+  --bind /project/flame,/home/qixinx
 )
-for source in "${HOST_LIBS[@]}"; do
-  name="$(basename -- "${source}")"
-  BIND_ARGS+=(--bind "${HOST_LIB_DIR}/${name}:/lib/x86_64-linux-gnu/${name}")
-done
 
 # Opt-in sglang patch (ported from sglang PR #27140): recapture CUDA graphs
 # after RL weight updates so replayed graphs never read relocated hybrid-model

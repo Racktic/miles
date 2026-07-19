@@ -29,15 +29,14 @@ export CODEBASE_SAVE_INTERVAL=8
 export CODEBASE_SEQ_LEN=24576
 export CODEBASE_MAX_TOK_PER_GPU=24576
 export CODEBASE_MODEL_SCRIPT="qwen3.5-4B.sh"
-export CODEBASE_HF_CKPT="/data/user_data/qixinx/Qwen3.5-4B"
-export CODEBASE_TORCH_DIST="/data/user_data/qixinx/Qwen3.5-4B_torch_dist"
+source "${SD}/scripts/cluster_orchard_env.sh"   # orchard 路径集(HF_CKPT/TORCH_DIST/SIF/pydeps/SAVE_DIR)
 export CODEBASE_PROMPT_DATA="${SD}/data/episodes_6p6_hard.jsonl"
 export CODEBASE_BASELINE_ARTIFACT="${SD}/data/baseline_4b_textfmt.json"
 export CODEBASE_NGPU=8 CODEBASE_TP=2
 
 export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 export APPTAINERENV_CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
-SCR=/scratch/qixinx
+SCR="${CODEBASE_SCR:-/tmp/qixinx}"
 mkdir -p "$SCR/apptainer_tmp" "$SCR/apptainer_cache" "$SCR/tmp"
 export APPTAINER_TMPDIR="$SCR/apptainer_tmp" APPTAINER_CACHEDIR="$SCR/apptainer_cache" TMPDIR="$SCR/tmp"
 export APPTAINERENV_APPTAINER_TMPDIR="$SCR/apptainer_tmp" APPTAINERENV_APPTAINER_CACHEDIR="$SCR/apptainer_cache" APPTAINERENV_TMPDIR="$SCR/tmp"

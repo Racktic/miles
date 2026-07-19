@@ -314,10 +314,25 @@ if [ "${RAY_SUPERVISED}" = "1" ]; then
   set +x
   echo "[supervise] submission_id=${RAY_SUBMISSION_ID}; 日志尾随自动重连 + status 轮询开始"
   TAIL_STOP="/tmp/.ray-tail-stop-${RAY_SUBMISSION_ID}"
-  rm -f "${TAIL_STOP}"
+  # 2026-07-18 orchard 冒烟实测的收尾 bug 修复: job 成功结束后 `ray job status` 会持续
+  # 失败(原因未明, 疑似 dashboard 被重拉日志压垮), 旧逻辑 10min 后误报 UNREACHABLE
+  # (exit 1), 且尾随子进程每 5s 重拉一遍全量 console log 造成日志洪泛。
+  # 修法: 尾随流里检测 ray cli 的终态句("Job '<id>' succeeded/failed/stopped"),
+  # 写入 TERM_FLAG 后不再重拉; status 轮询优先信任 TERM_FLAG。
+  TERM_FLAG="/tmp/.ray-terminal-${RAY_SUBMISSION_ID}"
+  rm -f "${TAIL_STOP}" "${TERM_FLAG}"
   (
     while [ ! -f "${TAIL_STOP}" ]; do
-      ray job logs --address="http://127.0.0.1:8265" -f "${RAY_SUBMISSION_ID}" 2>/dev/null
+      ray job logs --address="http://127.0.0.1:8265" -f "${RAY_SUBMISSION_ID}" 2>/dev/null \
+        | while IFS= read -r line; do
+            printf '%s\n' "$line"
+            case "$line" in
+              *"Job '${RAY_SUBMISSION_ID}' succeeded"*) echo SUCCEEDED > "${TERM_FLAG}" ;;
+              *"Job '${RAY_SUBMISSION_ID}' failed"*)    echo FAILED    > "${TERM_FLAG}" ;;
+              *"Job '${RAY_SUBMISSION_ID}' stopped"*)   echo STOPPED   > "${TERM_FLAG}" ;;
+            esac
+          done
+      [ -f "${TERM_FLAG}" ] && break
       [ -f "${TAIL_STOP}" ] && break
       echo "[supervise] 日志尾随断开, 5s 后重连"
       sleep 5
@@ -334,6 +349,11 @@ if [ "${RAY_SUPERVISED}" = "1" ]; then
       | python3 -c "import json,sys;print(next((j.get('status','') for j in json.load(sys.stdin) if j.get('submission_id')=='${RAY_SUBMISSION_ID}'),''))" 2>/dev/null
   }
   while :; do
+    # TERM_FLAG(尾随流里识别的终态)优先: 即刻定案, 也让尾随子进程不再重拉全量日志;
+    # 常规路径走 dashboard HTTP API(上面的 _poll_status)。
+    if [ -f "${TERM_FLAG}" ]; then
+      FINAL=$(cat "${TERM_FLAG}"); break
+    fi
     st=$(_poll_status)
     if [ -z "${st}" ]; then
       unreachable=$((unreachable+1))

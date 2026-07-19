@@ -17,27 +17,27 @@ export CODEBASE_NO_OFFLOAD=1
 export CODEBASE_SGLANG_RECAPTURE_PATCH=1        # 指纹仪表+recapture, 保留
 export TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC=3600
 
-export CODEBASE_RUN_ID="swecl-4b-write-delta-6p6"
+# 冒烟联调可外部覆盖(DEPLOY_NEW_CLUSTER.md §5 L5: CODEBASE_NUM_ROLLOUT=1 bash 本脚本)
+export CODEBASE_RUN_ID="${CODEBASE_RUN_ID:-swecl-4b-write-delta-6p6}"
 export CODEBASE_WANDB_RUN_ID="${CODEBASE_RUN_ID}"
 export CODEBASE_USE_WANDB=1
 export WANDB_PROJECT="miles-codebase-adaption" WANDB_GROUP="swecl-4b-textfmt"
 
-export CODEBASE_NUM_ROLLOUT=120
-export CODEBASE_EVAL_INTERVAL=8
-export CODEBASE_SAVE_INTERVAL=8
+export CODEBASE_NUM_ROLLOUT="${CODEBASE_NUM_ROLLOUT:-120}"
+export CODEBASE_EVAL_INTERVAL="${CODEBASE_EVAL_INTERVAL:-8}"
+export CODEBASE_SAVE_INTERVAL="${CODEBASE_SAVE_INTERVAL:-8}"
 # --save-hf 已是 run 脚本默认(hf/iter_{rollout_id} 兄弟目录), 无需在此设置
 export CODEBASE_SEQ_LEN=24576
 export CODEBASE_MAX_TOK_PER_GPU=24576
 export CODEBASE_MODEL_SCRIPT="qwen3.5-4B.sh"
-export CODEBASE_HF_CKPT="/data/user_data/qixinx/Qwen3.5-4B"
-export CODEBASE_TORCH_DIST="/data/user_data/qixinx/Qwen3.5-4B_torch_dist"
+source "${SD}/scripts/cluster_orchard_env.sh"   # orchard 路径集(HF_CKPT/TORCH_DIST/SIF/pydeps/SAVE_DIR)
 export CODEBASE_PROMPT_DATA="${SD}/data/episodes_6p6_hard.jsonl"
 export CODEBASE_BASELINE_ARTIFACT="${SD}/data/baseline_4b_textfmt.json"
 export CODEBASE_NGPU=8 CODEBASE_TP=2
 
 export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 export APPTAINERENV_CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
-SCR=/scratch/qixinx
+SCR="${CODEBASE_SCR:-/tmp/qixinx}"
 mkdir -p "$SCR/apptainer_tmp" "$SCR/apptainer_cache" "$SCR/tmp"
 export APPTAINER_TMPDIR="$SCR/apptainer_tmp" APPTAINER_CACHEDIR="$SCR/apptainer_cache" TMPDIR="$SCR/tmp"
 export APPTAINERENV_APPTAINER_TMPDIR="$SCR/apptainer_tmp" APPTAINERENV_APPTAINER_CACHEDIR="$SCR/apptainer_cache" APPTAINERENV_TMPDIR="$SCR/tmp"
