@@ -434,6 +434,21 @@ def _make_task(args, split: str, instance_ids: list[str], stage_labels: list[str
             dataset_path=dataset_path, schedule=None,
             max_steps_per_issue=max_steps, seed=seed,
         )
+    elif split == "rebench":
+        # SWE-rebench V2 eval(单题 no_memory,与 codebase heldout 同为 eval 路径)。
+        # SweRebenchTask 继承 codebase generic-PR runtime,额外跑 install_config + 严格判分。
+        if _ORIG_SINGULARITY_EXEC_ARGS is None:
+            os.environ.pop("CLBENCH_SINGULARITY_EXEC_ARGS", None)
+        else:
+            os.environ["CLBENCH_SINGULARITY_EXEC_ARGS"] = _ORIG_SINGULARITY_EXEC_ARGS
+        from src.tasks.swe_rebench.task import SweRebenchTask
+
+        rel = getattr(args, "codebase_rebench_dataset", "data/swe_rebench/pilot.jsonl")
+        dataset_path = str(root / rel)
+        task = SweRebenchTask(
+            dataset_path=dataset_path, schedule=None,
+            max_steps_per_issue=max_steps, seed=seed,
+        )
     else:
         # swe_bench_cl (train) writes CLBENCH_SINGULARITY_EXEC_ARGS process-globally
         # (testbed-first PATH, LANG, and notably NO --fakeroot for the SWE-bench
