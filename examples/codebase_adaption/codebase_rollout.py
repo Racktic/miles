@@ -426,11 +426,20 @@ def _make_task(args, split: str, instance_ids: list[str], stage_labels: list[str
         # 训练走 swe_bench_cl(继承 codebase, 但 django/sympy 用官方判分, 不能用 codebase 的 pytest
         # returncode 误判)。dataset 含全部 232 池 id 即可; reset 用 _schedule_instance_ids 精确取本
         # episode 的 19 题, num_instances 在该路径下不生效, schedule=None 跳过内建排布。
-        from src.tasks.swe_bench_cl.task import SweBenchCLTask
+        # CODEBASE_TRAIN_TASK: 训练任务族切换(2026-07-20, SWE-smith 数据扩充)。
+        # swe_smith 继承 SweBenchCLTask, 判分/exec-args 行为同构, 仅数据来源不同。
+        _train_task = os.environ.get("CODEBASE_TRAIN_TASK", "swe_bench_cl")
+        if _train_task == "swe_smith":
+            from src.tasks.swe_smith.task import SweSmithTask as _TrainTaskCls
+            _default_rel = "data/swe_smith/pilot.jsonl"
+        else:
+            from src.tasks.swe_bench_cl.task import SweBenchCLTask as _TrainTaskCls
+            _default_rel = "data/swe_bench_cl/full.jsonl"
 
-        rel = getattr(args, "codebase_train_dataset", "data/swe_bench_cl/full.jsonl")
+        rel = os.environ.get("CODEBASE_TRAIN_DATASET") or getattr(
+            args, "codebase_train_dataset", _default_rel)
         dataset_path = str(root / rel)
-        task = SweBenchCLTask(
+        task = _TrainTaskCls(
             dataset_path=dataset_path, schedule=None,
             max_steps_per_issue=max_steps, seed=seed,
         )
@@ -463,6 +472,32 @@ def _make_task(args, split: str, instance_ids: list[str], stage_labels: list[str
         # and is unsafe for future images. Restore the pre-train snapshot: None ->
         # backend default; an explicit user override is preserved (not clobbered).
         # Safe because miles runs train/eval rollouts sequentially (train.py:70).
+        # CODEBASE_EVAL_TASK=swe_smith(2026-07-20, pass@k eval-only 采集):
+        # eval 分支跑 SWE-smith 时沿用 swe_bench_cl 系 exec args(testbed PATH,
+        # 无 --fakeroot; swesmith 镜像与官方 SWE-bench 同布局), 不做 codebase 重置。
+        _eval_task = os.environ.get("CODEBASE_EVAL_TASK", "codebase_adaptation")
+        if _eval_task == "swe_smith":
+            from src.tasks.swe_smith.task import SweSmithTask
+
+            rel = os.environ.get("CODEBASE_EVAL_DATASET", "data/swe_smith/pilot.jsonl")
+            dataset_path = str(root / rel)
+            task = SweSmithTask(
+                dataset_path=dataset_path, schedule=None,
+                max_steps_per_issue=max_steps, seed=seed,
+            )
+            task.dataset_path = dataset_path
+            order = type("Order", (), {"instance_ids": instance_ids, "stage_labels": stage_labels})()
+            task._schedule_instance_ids = list(instance_ids)
+            task._schedule_stage_lookup = stage_lookup_for(order)
+            task._schedule_stage_sizes = []
+            _last = None
+            for label in stage_labels:
+                if label != _last:
+                    task._schedule_stage_sizes.append(1)
+                    _last = label
+                else:
+                    task._schedule_stage_sizes[-1] += 1
+            return task
         if _ORIG_SINGULARITY_EXEC_ARGS is None:
             os.environ.pop("CLBENCH_SINGULARITY_EXEC_ARGS", None)
         else:

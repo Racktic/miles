@@ -105,11 +105,20 @@ case "${CODEBASE_SAVE_INTERVAL:-0}" in
     ;;
 esac
 
+# CODEBASE_ROLLOUT_SHUFFLE=0 disables dataset shuffling so episodes are consumed
+# in file order (sequential offset per epoch) — required for step-level
+# curriculum data files (easy episodes first). Default 1 keeps legacy behavior.
+if [[ "${CODEBASE_ROLLOUT_SHUFFLE:-1}" == "1" ]]; then
+  ROLLOUT_SHUFFLE_ARG="--rollout-shuffle"
+else
+  ROLLOUT_SHUFFLE_ARG=""
+fi
+
 ROLLOUT_ARGS=(
   --prompt-data ${CODEBASE_PROMPT_DATA:-${SCRIPT_DIR}/data/swecl_train_episodes.jsonl}
   --input-key prompt
   --metadata-key metadata
-  --rollout-shuffle
+  ${ROLLOUT_SHUFFLE_ARG}
   --num-rollout ${CODEBASE_NUM_ROLLOUT:-1}
   --rollout-batch-size ${CODEBASE_ROLLOUT_BATCH_SIZE:-2}
   --n-samples-per-prompt ${CODEBASE_N_SAMPLES:-8}
@@ -134,6 +143,12 @@ CUSTOM_ARGS=(
   --custom-rollout-log-function-path examples.codebase_adaption.codebase_metrics.log_rollout_data
   --custom-eval-rollout-log-function-path examples.codebase_adaption.codebase_metrics.log_eval_rollout_data
 )
+# DAPO-style zero-std group dropping (2026-07-21): wraps generate_rollout to
+# physically remove constant-advantage sibling groups (~40-50% dead groups that
+# dilute the effective step size) before the dynamic-gbs computation.
+if [[ "${CODEBASE_DROP_ZERO_STD_GROUPS:-0}" == "1" ]]; then
+  CUSTOM_ARGS+=(--rollout-function-path examples.codebase_adaption.codebase_rollout_filter.generate_rollout)
+fi
 
 EVAL_ARGS=()
 case "${CODEBASE_EVAL_INTERVAL:-3}" in
@@ -314,12 +329,37 @@ if [ "${RAY_SUPERVISED}" = "1" ]; then
   set +x
   echo "[supervise] submission_id=${RAY_SUBMISSION_ID}; 日志尾随自动重连 + status 轮询开始"
   TAIL_STOP="/tmp/.ray-tail-stop-${RAY_SUBMISSION_ID}"
-  rm -f "${TAIL_STOP}"
+  # 2026-07-18 orchard 冒烟实测的收尾 bug 修复: job 成功结束后 `ray job status` 会持续
+  # 失败(原因未明, 疑似 dashboard 被重拉日志压垮), 旧逻辑 10min 后误报 UNREACHABLE
+  # (exit 1), 且尾随子进程每 5s 重拉一遍全量 console log 造成日志洪泛。
+  # 修法: 尾随流里检测 ray cli 的终态句("Job '<id>' succeeded/failed/stopped"),
+  # 写入 TERM_FLAG 后不再重拉; status 轮询优先信任 TERM_FLAG。
+  TERM_FLAG="/tmp/.ray-terminal-${RAY_SUBMISSION_ID}"
+  rm -f "${TAIL_STOP}" "${TERM_FLAG}"
+  # 重连续传: `ray job logs -f` 每次重连都会从头重放全量日志, 运行中频繁瞬断会让
+  # console log 重复膨胀(3 天 run 可能达 GB 级, /home 配额扛不住)。用行数游标跳过
+  # 已输出的前缀, 只透传新增行。
+  TAIL_SEEN="/tmp/.ray-tail-seen-${RAY_SUBMISSION_ID}"
+  echo 0 > "${TAIL_SEEN}"
   (
     while [ ! -f "${TAIL_STOP}" ]; do
-      ray job logs --address="http://127.0.0.1:8265" -f "${RAY_SUBMISSION_ID}" 2>/dev/null
+      ray job logs --address="http://127.0.0.1:8265" -f "${RAY_SUBMISSION_ID}" 2>/dev/null \
+        | while IFS= read -r line; do
+            # n = 本次 dump 内的行序号(每次重连从 1 重数); 只透传超过历史游标的行
+            n=$((${n:-0}+1))
+            if [ ${n} -gt $(cat "${TAIL_SEEN}") ]; then
+              printf '%s\n' "$line"
+              echo ${n} > "${TAIL_SEEN}"
+            fi
+            case "$line" in
+              *"Job '${RAY_SUBMISSION_ID}' succeeded"*) echo SUCCEEDED > "${TERM_FLAG}" ;;
+              *"Job '${RAY_SUBMISSION_ID}' failed"*)    echo FAILED    > "${TERM_FLAG}" ;;
+              *"Job '${RAY_SUBMISSION_ID}' stopped"*)   echo STOPPED   > "${TERM_FLAG}" ;;
+            esac
+          done
+      [ -f "${TERM_FLAG}" ] && break
       [ -f "${TAIL_STOP}" ] && break
-      echo "[supervise] 日志尾随断开, 5s 后重连"
+      echo "[supervise] 日志尾随断开, 5s 后重连(已见 $(cat "${TAIL_SEEN}") 行, 重放部分将跳过)"
       sleep 5
     done
   ) &
@@ -334,11 +374,25 @@ if [ "${RAY_SUPERVISED}" = "1" ]; then
       | python3 -c "import json,sys;print(next((j.get('status','') for j in json.load(sys.stdin) if j.get('submission_id')=='${RAY_SUBMISSION_ID}'),''))" 2>/dev/null
   }
   while :; do
+    # TERM_FLAG(尾随流里识别的终态)优先: 即刻定案, 也让尾随子进程不再重拉全量日志;
+    # 常规路径走 dashboard HTTP API(上面的 _poll_status)。
+    if [ -f "${TERM_FLAG}" ]; then
+      FINAL=$(cat "${TERM_FLAG}"); break
+    fi
     st=$(_poll_status)
     if [ -z "${st}" ]; then
       unreachable=$((unreachable+1))
       if [ ${unreachable} -ge 20 ]; then
-        echo "[supervise] status 连续 ${unreachable} 次不可达(~10min), 判定 ray 头已死"
+        # dashboard 死 ≠ 训练死(2026-07-20 事故: dashboard 单独死亡, 旧逻辑误杀了
+        # 仍在产轨迹的健康训练, 损失 r64-70)。旁路活性判据: traj 落盘新鲜度
+        # (文件系统信号, 不依赖 dashboard)。45min 覆盖一个完整 rollout+train 周期。
+        fresh=$(find "${CODEBASE_TRAJ_DIR}" -newermt "-45 minutes" -print -quit 2>/dev/null)
+        if [ -n "${fresh}" ]; then
+          echo "[supervise] status 不可达但 traj 仍在更新, 判定训练存活, 继续守望(dashboard 已放弃)"
+          unreachable=0
+          sleep 60; continue
+        fi
+        echo "[supervise] status 连续 ${unreachable} 次不可达且 traj 停更>45min, 判定训练已死"
         FINAL="UNREACHABLE"; break
       fi
       sleep 30; continue

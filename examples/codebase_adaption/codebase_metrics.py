@@ -83,6 +83,12 @@ def _group_zero_std_metrics(samples) -> dict[str, float]:
             key = (sample.group_index, md.get("trial_pos"))
             act_groups[key].append(float(sample.reward or 0.0))
 
+    # Dropped-group fraction from the zero-std filter (codebase_rollout_filter);
+    # constant 0 when the filter is disabled. Note: with the filter enabled this
+    # function sees post-filter samples, so act/write_group_zero_std_frac trend
+    # toward 0 — the true dead-group rate is this metric.
+    from examples.codebase_adaption import codebase_rollout_filter
+
     return {
         "codebase_grpo/act_group_zero_std_frac": (
             sum(1 for vals in act_groups.values() if _zero_std(vals)) / len(act_groups) if act_groups else 0.0
@@ -90,6 +96,7 @@ def _group_zero_std_metrics(samples) -> dict[str, float]:
         "codebase_grpo/write_group_zero_std_frac": (
             sum(1 for vals in write_groups.values() if _zero_std(vals)) / len(write_groups) if write_groups else 0.0
         ),
+        "codebase_grpo/zero_std_dropped_frac": float(codebase_rollout_filter.last_dropped_frac or 0.0),
     }
 
 
