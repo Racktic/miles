@@ -261,6 +261,27 @@ weights-only 加载定格 ckpt + `--start-rollout-id 0` + `CODEBASE_EVAL_BEFORE_
 3. 附带现象:`ray job logs -f` 对已死 job 每次重连都全量重放日志,.out 会以 ~5s 一轮膨胀;
    状态解析修好后循环会在终态 ~75s 内收敛,该现象自然有界。
 
+### W9 崩溃后重启的两个坑(2026-07-21 v3think 续训三连崩)
+
+崩溃/kill 后重启同一 run,踩了两个独立的坑,都会让"重启"假成功或再崩:
+
+1. **kill -9 清进程后必须清 RUNTIME_ROOT**。launch 脚本把宿主
+   `/tmp/codebase-adaption-apptainer-<uid>/varlib` bind 成 SIF 内 `/var/lib/apptainer`,
+   嵌套 apptainer 用它的 `mnt/session` 建每个 issue 容器。**上一个 run 被 kill -9 时
+   会在 RUNTIME_ROOT 留下半损坏的 session 状态**,新 run 复用则**所有容器 build 失败**:
+   `FATAL: failed to resolve session directory /var/lib/apptainer/mnt/session:
+   lstat /var/lib/apptainer/mnt: no such file or directory`(表现为 84 次 build 全失败、
+   0 个 `Initialized generic PR workspace`,做题拿不到容器 → 下游报 `RpcError: Socket closed`
+   actor 掉线 → job failed)。修复:重启前 `rm -rf /tmp/codebase-adaption-apptainer-*`,
+   或用全新 `CODEBASE_APPTAINER_RUNTIME_ROOT=/tmp/cb-<新名>-$(date +%s)`。**注意:
+   RpcError/actor-unavailable 崩溃先别当 OOM——先查是不是 build 全失败(grep "Error building image")。**
+2. **在 salloc 里启动持久训练不能用 `srun ... 'nohup bash train.sh &'`**。srun step 一返回,
+   SLURM 会把整个 step 的 cgroup(含 nohup 的训练)清掉——nohup 挡 SIGHUP,挡不住 step 清理,
+   训练启动到 `ray stop` 就死。正确:`srun --jobid=<salloc> --overlap --gres=gpu:8 bash -c
+   'exec bash train.sh'` **前台跑**(由外层长活进程 hold 住 srun)。ssh-nohup 能长活是因为
+   ssh 会话清理不杀 pam_slurm_adopt 的 cgroup;但 ssh 到计算节点可能被 pam_slurm_adopt 拒
+   (无该节点 job 时),此时只能走 srun-前台。日志诊断走 NFS(/home 共享),不依赖 ssh 到该节点。
+
 ## 9. 故障速查
 
 | 症状 | 原因 | 操作 |
@@ -270,6 +291,9 @@ weights-only 加载定格 ckpt + `--start-rollout-id 0` + `CODEBASE_EVAL_BEFORE_
 | rollout 分数骤降至 ~0 / A_log 哨兵偏离 | 权重被写坏 | 立即停,从最近健康 ckpt weights-only 恢复,排查优化器配置 |
 | 首个训练步 SIGABRT(watchdog) | NCCL 首步竞态 | 直接重启,大概率一次通过(heartbeat 3600 已默认) |
 | `FATAL ... session directory` 后整个 job 死 | 旧版本无故障隔离 | 用最新代码(已含 episode 级隔离);重启 |
+| 重启后所有容器 build 失败 `failed to resolve session directory` | 上个 run 被 kill 留下损坏 RUNTIME_ROOT | 见 W9.1:`rm -rf /tmp/codebase-adaption-apptainer-*` 或用全新 RUNTIME_ROOT |
+| RpcError/actor unavailable 崩溃 | 常是 build 全失败的下游(非 OOM) | grep "Error building image";是则按 W9.1;否则查真因,勿盲改 SEQ_LEN |
+| srun 启的训练启动即死(停在 ray stop) | srun step 返回后 SLURM 清 cgroup | 见 W9.2:srun 前台跑 `exec bash train.sh`,外层 hold |
 | Ray 起不来 / 端口占用 | 上次残留 | run 脚本自带 `ray stop --force`;顽固时手动 kill gcs_server/raylet |
 | /dev/shm OOM | plasma 超配 | 确认 `CODEBASE_OBJECT_STORE_MEM` 生效(默认 16GB) |
 | 启动即崩 `x509 unknown authority` / `SSLError(FileNotFoundError)` | 提交 shell 的 SSL_CERT_* 混进容器 | 见 W8.1;确认 run/sbatch 的 unset 行还在 |
