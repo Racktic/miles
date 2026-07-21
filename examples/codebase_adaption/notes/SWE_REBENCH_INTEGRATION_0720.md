@@ -43,12 +43,21 @@
 ## 进度(P0)
 
 - [x] 选题 120 题、判分核移植+单测、gold 冒烟 3/3、判分脚本生成器入库+单测
-- [~] 镜像拉取转 SIF:`pull_pilot_images.sbatch`,进行中(~51/120,0 失败,~1GB/个,网络瓶颈)
-- [ ] `SweRebenchTask`(仿 SweBenchCLTask:继承 generic runtime,`_evaluate_submission`
-      走 build_eval_script+grade;install_config 随 instance 带入)
-- [ ] miles eval-only runner(单题 no_memory episode × avg@4,同 bl-4b-textfmt 路线)
-- [ ] **120×avg@4 4B 可解性 baseline → 决策门**(GPU,提交前报资源)
+- [x] `SweRebenchTask`(继承 generic runtime,`_evaluate_submission` 走 build_eval_script+grade,
+      install_config 随 instance 带入,无 fakeroot)+ codebase_rollout.py split=rebench 路由
+- [x] miles eval-only(eval_rebench.sh + rebench_eval.jsonl 单题 no_memory,同 bl-4b-textfmt 路线);
+      **端到端冒烟通过**(3 题真机做题+判分)
+- [x] **4B 可解性 baseline → 决策门通过**(52 题×avg@4,v5-16 抢占 4×A100):
+      **easy pass@4 37% / 样本成功率 21.5%,RL 黄金区间 → rebench 可训练**
+- [~] 镜像拉取:120 pilot 仅 55 成功(失败=mksquashfs 偶发+并发过高假失败,非镜像缺失;
+      全量 Python 子集 7,229 镜像/~7.2TB,训练只需 ~2,880 题子集)
 - [ ] 过门后:全量序列切分(每 repo 时序、序列间零共享,B8-B11 题剔除)+ 训练管线
+
+**逐坑调试史(端到端接入必踩,已全清)**:①`--writable`+`--bind` 挂载点不存在→FATAL(补丁直拷沙箱);
+②内联 bash 被二次展开→独立脚本文件;③repo 发现=`/<basename>`;④脏工作树→`git reset --hard base`;
+⑤缺 `install_config.install`(babel setup.cfg sed);⑥**GLIBC_2.38/fakeroot→禁 --fakeroot**(W6.5);
+⑦`num_instances` 契约→显式声明;⑧eval 落盘目录固定名 `traj/eval/heldout/`(非 rebench),wrapper 曾
+等错目录提前拆(数据未丢,已知)。
 
 工件目录:`/home/qixinx/swe_rebench_workdir/`(select/pull/smoke 脚本)、
 `/data/user_data/qixinx/swe_rebench/`(raw parquet、pilot manifest、sifs)。

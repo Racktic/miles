@@ -48,16 +48,30 @@ CC-BY-4.0(23.6% 上游 repo license 标 custom,内部训练无碍);与池零重�
 镜像 docker.io/swerebenchv2/*,每题一个(0.8-1.4GB),匿名可拉。判分 test_cmd+命名 log_parser,
 与 swe_bench_cl 同语义(接入最顺)。注意:宣称月更未兑现(2026-03 后无增量);created_at 实为字符串。
 
-**转换目标**:P0 先导(难度预筛选 20-30 条序列 → 镜像转 SIF ~200GB → 4B avg@k 可解性 baseline)
-→ 过门后全量序列切分(train 序列 + 独立 heldout 序列,序列内时序、序列间零共享)→ 接入训练管线
-(episode=序列,复用 swe_bench_cl 双 task 架构)。
+**镜像规模(全量 parquet 实数)**:每题一个唯一镜像,无共享。全 rebench V2 = 32,079 镜像(~32TB);
+**Python 子集 = 7,229 镜像(690 repo,~7.2TB)**。训练不需全拉:240 条 L=6 序列 ≈ 2,880 题 ≈ ~2.9TB。
+
+**转换目标**:P0 先导(单题分层抽样 → 镜像转 SIF → 4B avg@4 可解性 baseline)→ 过门后全量序列切分
+(train 序列 + 独立 heldout 序列,序列内时序、序列间零共享)→ 接入训练管线(episode=序列,复用
+swe_bench_cl 双 task 架构)。
 
 **流程与进度**:
 - [x] 调研+产能核算完成(parquet 全量 428MB 已扫)
-- [ ] P0:序列筛选脚本(难度/置信度过滤 + per-repo 时序切分)
-- [ ] P0:先导镜像拉取转 SIF(复用 swe_evo 的 docker-archive/pull 管线)
-- [ ] P0:4B 可解性 baseline → **决策门**
-- [ ] 全量管线 + episode 数据生成
+- [x] P0 选题:select_pilot.py → 120 题 pilot(easy/medium/hard 分层,pytest 族 parser,每 repo≤3);
+      manifest+镜像清单在 /data/user_data/qixinx/swe_rebench/pilot/
+- [x] **判分链**:src/tasks/swe_rebench/grading.py(parse_log_pytest + 严格集合相等判据 +
+      build_eval_script);**gold 冒烟 3/3 resolved**(isort 46/46, babel 29/29, cookiecutter 15/15)
+- [x] **miles 集成**:SweRebenchTask(继承 codebase generic-PR runtime,加 install_config + 严格判分 +
+      无 fakeroot)+ codebase_rollout.py 的 split=rebench 路由 + eval episode 生成;**端到端冒烟通过**
+- [x] **P0 可解性 baseline → 决策门通过**(base 4B,52 题×avg@4,v5-16 抢占 4×A100 eval-only):
+      **easy pass@4 18/48=37% / 样本成功率 21.5%**;medium 4题样本太小(0/4)。**~20% 样本成功率
+      落在 RL 黄金区间**(组内有方差)→ **rebench 确认可训练**
+- [~] 镜像拉取:120 pilot 仅 55 成功。**失败非镜像缺失**:mksquashfs 偶发故障 + 我并发过高(4路)
+      造成大量假失败(手动重拉 tornado 等 FAIL 项均成功)。教训:建全量池时用带认证 docker + 串行 +
+      大 TMPDIR + 对真 mksquashfs 失败者走官方镜像重建
+- [ ] 全量序列切分(每 repo 时序、序列间零共享、按镜像可拉性+可解层+剔 B8-B11 筛)+ 训练管线
+
+**接入笔记详**:notes/SWE_REBENCH_INTEGRATION_0720.md(判分 6 步前置 + apptainer 坑清单 + 逐坑调试史)。
 
 ### 1.3 R2E-Gym-Subset(定位:辅助/参考系)
 
