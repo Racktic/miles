@@ -56,9 +56,33 @@ def _filter_tree(node, drop: set):
     return kept
 
 
-def drop_zero_std_groups(samples: list, evaluation: bool) -> list:
+def _drop_broken_samples(samples: list) -> list:
+    """Drop aborted samples whose rollout_log_probs is None.
+
+    A generation aborted mid-flight yields a sample that still carries a reward
+    but no rollout_log_probs; slice_log_prob_with_cp then dies with
+    `NoneType has no len()` (seen at grace12 r107, 2026-07-27). Only drop when
+    such samples are a strict minority — if the whole batch has None the run
+    simply does not use rollout log probs and dropping would empty the batch.
+    """
+    flat = [s for s in _iter_samples(samples) if hasattr(s, "reward")]
+    broken = {id(s) for s in flat if getattr(s, "rollout_log_probs", "n/a") is None}
+    if not broken or len(broken) * 2 >= len(flat):
+        return samples
+    print(
+        f"[zero_std_filter] WARNING: dropping {len(broken)} aborted samples "
+        "with rollout_log_probs=None",
+        flush=True,
+    )
+    return _filter_tree(samples, broken)
+
+
+def drop_zero_std_groups(samples: list, evaluation: bool, min_keep: int = 0) -> list:
     global last_dropped_frac
-    if evaluation or os.environ.get("CODEBASE_DROP_ZERO_STD_GROUPS", "0") != "1":
+    if evaluation:
+        return samples
+    samples = _drop_broken_samples(samples)
+    if os.environ.get("CODEBASE_DROP_ZERO_STD_GROUPS", "0") != "1":
         return samples
 
     flat = [s for s in _iter_samples(samples) if hasattr(s, "reward")]
@@ -92,6 +116,16 @@ def drop_zero_std_groups(samples: list, evaluation: bool) -> list:
             flush=True,
         )
         return samples
+    if min_keep > 0 and len(flat) - len(drop_ids) < min_keep:
+        # Survivors would not fill even one global batch and
+        # postprocess_rollout_data raises on that; keep the full batch instead.
+        last_dropped_frac = (len(groups) - 1) / len(groups) if len(groups) > 1 else 1.0
+        print(
+            f"[zero_std_filter] WARNING: only {len(flat) - len(drop_ids)} samples "
+            f"would survive (< min_keep {min_keep}), skipping filter to preserve the batch",
+            flush=True,
+        )
+        return samples
 
     filtered = _filter_tree(samples, drop_ids)
     n_groups_dropped = n_drop_act + n_drop_write
@@ -111,7 +145,9 @@ def generate_rollout(args: Namespace, rollout_id: int, data_source: Any, evaluat
 
     output = base_generate_rollout(args, rollout_id, data_source, evaluation=evaluation)
     if isinstance(output, RolloutFnTrainOutput):
+        min_keep = int(getattr(args, "global_batch_size", 0) or 0)
         output = RolloutFnTrainOutput(
-            samples=drop_zero_std_groups(output.samples, evaluation), metrics=output.metrics
+            samples=drop_zero_std_groups(output.samples, evaluation, min_keep=min_keep),
+            metrics=output.metrics,
         )
     return output
