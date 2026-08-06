@@ -83,6 +83,12 @@ def _group_zero_std_metrics(samples) -> dict[str, float]:
             key = (sample.group_index, md.get("trial_pos"))
             act_groups[key].append(float(sample.reward or 0.0))
 
+    # Dropped-group fraction from the zero-std filter (codebase_rollout_filter);
+    # constant 0 when the filter is disabled. Note: with the filter enabled this
+    # function sees post-filter samples, so act/write_group_zero_std_frac trend
+    # toward 0 — the true dead-group rate is this metric.
+    from examples.codebase_adaption import codebase_rollout_filter
+
     return {
         "codebase_grpo/act_group_zero_std_frac": (
             sum(1 for vals in act_groups.values() if _zero_std(vals)) / len(act_groups) if act_groups else 0.0
@@ -90,7 +96,55 @@ def _group_zero_std_metrics(samples) -> dict[str, float]:
         "codebase_grpo/write_group_zero_std_frac": (
             sum(1 for vals in write_groups.values() if _zero_std(vals)) / len(write_groups) if write_groups else 0.0
         ),
+        "codebase_grpo/zero_std_dropped_frac": float(codebase_rollout_filter.last_dropped_frac or 0.0),
     }
+
+
+_EXPLORE_DIMS = ("new_discoveries", "error_correction", "verification_targets", "non_redundant_change")
+
+
+def _explore_metrics(samples) -> dict[str, float]:
+    """codebase_explore/* telemetry for the ACT exploration reward.
+
+    Emits {} when the feature is off. When beta>0 but NO sample carries an explore_score,
+    still emits coverage=0.0 (+ n=0) so a judge outage shows as a visible drop in wandb —
+    alchemy's equivalent simply stopped emitting, which once hid a multi-step outage.
+    """
+    from examples.codebase_adaption.codebase_advantage import explore_beta
+
+    act = _act_samples(samples)
+    scored = [s for s in act if (s.metadata or {}).get("explore_score") is not None]
+    if not scored and explore_beta(None) <= 0:
+        return {}
+    out = {
+        "codebase_explore/n": float(len(scored)),
+        "codebase_explore/coverage": (len(scored) / len(act)) if act else 0.0,
+        "codebase_explore/score_mean": _mean(
+            float((s.metadata or {}).get("explore_score")) for s in scored
+        ),
+    }
+    for dim in _EXPLORE_DIMS:
+        out[f"codebase_explore/{dim}_mean"] = _mean(
+            float(((s.metadata or {}).get("explore_dims") or {}).get(dim, 0)) for s in scored
+        )
+    groups = defaultdict(list)
+    for s in scored:
+        md = s.metadata or {}
+        groups[(s.group_index, md.get("trial_pos"))].append(float(md.get("explore_score")))
+    out["codebase_explore/group_zero_std_frac"] = (
+        sum(1 for vals in groups.values() if _zero_std(vals)) / len(groups) if groups else 0.0
+    )
+    # Mean within-group std of explore_score — the strength of the whitened explore signal
+    # (offline validation baseline ~0.185; a slide toward 0 means judge saturation is eating
+    # the gradient, a jump up with rising score_mean is the reward-hacking signature).
+    stds = []
+    for vals in groups.values():
+        if len(vals) >= 2:
+            m = sum(vals) / len(vals)
+            stds.append((sum((v - m) ** 2 for v in vals) / len(vals)) ** 0.5)
+    if stds:
+        out["codebase_explore/group_std_mean"] = _mean(stds)
+    return out
 
 
 def log_rollout_data(rollout_id, args, samples, rollout_extra_metrics, rollout_time) -> bool:
@@ -133,6 +187,17 @@ def log_rollout_data(rollout_id, args, samples, rollout_extra_metrics, rollout_t
         1.0 if (s.metadata or {}).get("overlong_pre_truncate") else 0.0 for s in write
     )
     by_phase.update(_group_zero_std_metrics(flat))
+    by_phase.update(_explore_metrics(flat))
+    # Pre-filter view stashed by codebase_rollout_filter before dropping zero-std groups:
+    # the post-filter success_frac above is conditioned on "group has reward variance" and
+    # never sees saturated all-pass groups, so it cannot show saturation-style improvements.
+    from examples.codebase_adaption import codebase_rollout_filter
+
+    if codebase_rollout_filter.last_prefilter_stats:
+        stats = codebase_rollout_filter.last_prefilter_stats
+        by_phase["codebase_reward/success_frac_prefilter"] = stats["success_frac_prefilter"]
+        by_phase["codebase_grpo/act_group_allpass_frac"] = stats["act_group_allpass_frac"]
+        by_phase["codebase_grpo/act_group_allfail_frac"] = stats["act_group_allfail_frac"]
 
     metrics = {**base, **by_phase, "rollout/rollout_time": rollout_time}
     metrics["rollout/step"] = compute_rollout_step(args, rollout_id)

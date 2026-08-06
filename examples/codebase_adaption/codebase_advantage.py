@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 from collections import defaultdict
 from typing import Any
@@ -18,6 +19,20 @@ def _group_key(sample):
 
 def _mean(vals: list[float]) -> float:
     return sum(vals) / len(vals) if vals else 0.0
+
+
+def explore_beta(args) -> float:
+    """Single source of truth for the ACT exploration-reward coefficient.
+
+    BOTH the rollout (gates judge calls) and reward_post_process (gates advantage shaping)
+    must call this — alchemy read the env var on one side and the YAML arg on the other, so
+    enabling only one silently either burned API budget at beta=0 or armed shaping that never
+    received scores. Env wins so a run script can enable it without editing the YAML.
+    """
+    raw = os.environ.get("CODEBASE_ACT_EXPLORE_BETA", "").strip()
+    if raw:
+        return float(raw)
+    return float(getattr(args, "codebase_act_explore_beta", 0.0) or 0.0)
 
 
 def downstream_improve_rewards(
@@ -77,6 +92,44 @@ def gated_downstream_rewards(
     for k in range(len(rewards) - 1):
         f = 1.0 if format_ok.get(k) else 0.0
         out[k] = f * float(rewards[k + 1]) + float(bonus) * f
+    return out
+
+
+def gated_windowed_rewards(
+    rewards: list[float],
+    format_ok: dict[int, bool],
+    *,
+    window: int = 3,
+    bonus: float = 0.1,
+) -> dict[int, float]:
+    """WRITE rewards pricing a K-trial horizon (user-specified 2026-08-02).
+
+    R(M_k) = format_ok_k * (mean(rewards[k+1..k+K]) - mean(rewards[k-K+1..k]))
+             + bonus * format_ok_k
+
+    Rationale: gated_downstream prices only the NEXT trial, which optimized
+    memory into a one-task rolling buffer (cross-repo keep rate 28% -> 0.5%).
+    A windowed delta gives cross-task accumulation a gradient. The prev window
+    ends at trial k (the last trial before M_k is written), so both windows are
+    causal w.r.t. the memory being scored. Memories with an empty next window
+    (episode tail) are omitted, as in the other modes. The format gate and
+    bonus are kept unchanged from gated_downstream: the gate is the drift
+    anchor credited with delaying the actonly-style collapse by ~20 rollouts.
+
+    Known caveat carried from the delta family: subtracting one's own recent
+    past has a mean-reversion bias (corr -0.736 at window=1, see
+    WRITE_COLLAPSE_ANALYSIS_0714); window>=3 plus GRPO within-group
+    normalization attenuates but does not eliminate it.
+    """
+    k_win = max(1, int(window))
+    out: dict[int, float] = {}
+    for k in range(len(rewards) - 1):
+        nxt = rewards[k + 1 : k + 1 + k_win]
+        if not nxt:
+            continue
+        prv = rewards[max(0, k - k_win + 1) : k + 1]
+        f = 1.0 if format_ok.get(k) else 0.0
+        out[k] = f * (_mean([float(x) for x in nxt]) - _mean([float(x) for x in prv])) + float(bonus) * f
     return out
 
 
@@ -144,6 +197,49 @@ def reward_post_process(args, samples):
             denom = (var**0.5) + 1e-6
         for i in idxs:
             advantages[i] = (raw_rewards[i] - mean) / denom
+
+    # ACT exploration shaping (additive): act_adv += beta * explore_adv, where explore_adv is the
+    # judge's explore_score standardized within the same ("act", group_index, trial_pos) groups,
+    # rebuilt over only the samples that actually carry a score (judge failures degrade to absent).
+    # raw_rewards stay = task score, so every reward-based metric is untouched. beta=0 -> no-op.
+    beta = explore_beta(args)
+    if beta > 0:
+        exp_groups: dict[Any, list[int]] = defaultdict(list)
+        for i, s in enumerate(samples):
+            md = s.metadata or {}
+            if md.get("phase") != "write" and md.get("explore_score") is not None:
+                exp_groups[_group_key(s)].append(i)
+        explore_sum = 0.0
+        explored_n = 0
+        for _key, idxs in exp_groups.items():
+            vals = [float((samples[i].metadata or {}).get("explore_score")) for i in idxs]
+            n = len(vals)
+            if n < 2:
+                continue
+            mean = sum(vals) / n
+            denom = 1.0
+            if std_norm:
+                var = sum((v - mean) ** 2 for v in vals) / n
+                denom = (var**0.5) + 1e-6
+            for i in idxs:
+                ev = float((samples[i].metadata or {}).get("explore_score"))
+                advantages[i] += beta * (ev - mean) / denom
+                explore_sum += ev
+                explored_n += 1
+        if explored_n:
+            print(
+                f"[codebase_advantage] explore beta={beta} tagged_act={explored_n} "
+                f"mean_explore_score={explore_sum / explored_n:.3f}",
+                flush=True,
+            )
+        else:
+            # Loud zero-coverage path: with beta>0 this means the judge produced nothing
+            # (outage/missing key) and training is silently running as pure task-reward.
+            print(
+                f"[codebase_advantage] WARNING explore beta={beta} but ZERO samples carry "
+                f"explore_score — judge outage or misconfiguration, shaping inactive this step",
+                flush=True,
+            )
 
     act_r = [raw_rewards[i] for i, s in enumerate(samples) if (s.metadata or {}).get("phase") != "write"]
     wr_r = [raw_rewards[i] for i, s in enumerate(samples) if (s.metadata or {}).get("phase") == "write"]
