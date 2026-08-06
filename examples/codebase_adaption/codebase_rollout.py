@@ -342,12 +342,25 @@ def _response_from_text(query, text: str):
     0 个或多个块 → command 置空(task 对空命令返回 "Empty command" 提示且不消耗
     步数预算, 模型下一轮重试)。注意: 这里的解析结果只喂给 task.step 执行——
     进对话历史和训练样本的始终是模型原文(clean_act), 与解析无关。
+
+    多块判空的例外开关 CODEBASE_MULTIBLOCK_TAKE_FIRST=1(2026-08-06, 多块循环分析
+    后的修复选项 b): ≥2 个 bash 块时取第一个执行而非判空。背景: 多块→判空→
+    "没找到完整块"的误导反馈曾让 actonly/gated 陷入自我误诊循环(单段最长 36 turn,
+    r104 期烧掉 25-30% 轮次), 是 actonly 崩溃的第一阶段主通道。默认关闭以保持
+    在跑实验的可比性; 配套的反馈文案修复见 CODEBASE_MULTIBLOCK_FEEDBACK。
     """
     action_cls = query.response_schema
     fields = getattr(action_cls, "model_fields", {})
     text = text or ""
     blocks = _BASH_BLOCK_RE.findall(text)
-    command = blocks[0].strip() if len(blocks) == 1 else ""
+    if len(blocks) == 1:
+        command = blocks[0].strip()
+    elif len(blocks) > 1 and os.environ.get(
+        "CODEBASE_MULTIBLOCK_TAKE_FIRST", ""
+    ).strip().lower() in ("1", "true", "yes", "on"):
+        command = blocks[0].strip()
+    else:
+        command = ""
     thought = _BASH_BLOCK_RE.sub("", text).strip()
     payload = {}
     if "command" in fields:
@@ -426,11 +439,20 @@ def _make_task(args, split: str, instance_ids: list[str], stage_labels: list[str
         # 训练走 swe_bench_cl(继承 codebase, 但 django/sympy 用官方判分, 不能用 codebase 的 pytest
         # returncode 误判)。dataset 含全部 232 池 id 即可; reset 用 _schedule_instance_ids 精确取本
         # episode 的 19 题, num_instances 在该路径下不生效, schedule=None 跳过内建排布。
-        from src.tasks.swe_bench_cl.task import SweBenchCLTask
+        # CODEBASE_TRAIN_TASK: 训练任务族切换(2026-07-20, SWE-smith 数据扩充)。
+        # swe_smith 继承 SweBenchCLTask, 判分/exec-args 行为同构, 仅数据来源不同。
+        _train_task = os.environ.get("CODEBASE_TRAIN_TASK", "swe_bench_cl")
+        if _train_task == "swe_smith":
+            from src.tasks.swe_smith.task import SweSmithTask as _TrainTaskCls
+            _default_rel = "data/swe_smith/pilot.jsonl"
+        else:
+            from src.tasks.swe_bench_cl.task import SweBenchCLTask as _TrainTaskCls
+            _default_rel = "data/swe_bench_cl/full.jsonl"
 
-        rel = getattr(args, "codebase_train_dataset", "data/swe_bench_cl/full.jsonl")
+        rel = os.environ.get("CODEBASE_TRAIN_DATASET") or getattr(
+            args, "codebase_train_dataset", _default_rel)
         dataset_path = str(root / rel)
-        task = SweBenchCLTask(
+        task = _TrainTaskCls(
             dataset_path=dataset_path, schedule=None,
             max_steps_per_issue=max_steps, seed=seed,
         )
@@ -448,6 +470,32 @@ def _make_task(args, split: str, instance_ids: list[str], stage_labels: list[str
         # and is unsafe for future images. Restore the pre-train snapshot: None ->
         # backend default; an explicit user override is preserved (not clobbered).
         # Safe because miles runs train/eval rollouts sequentially (train.py:70).
+        # CODEBASE_EVAL_TASK=swe_smith(2026-07-20, pass@k eval-only 采集):
+        # eval 分支跑 SWE-smith 时沿用 swe_bench_cl 系 exec args(testbed PATH,
+        # 无 --fakeroot; swesmith 镜像与官方 SWE-bench 同布局), 不做 codebase 重置。
+        _eval_task = os.environ.get("CODEBASE_EVAL_TASK", "codebase_adaptation")
+        if _eval_task == "swe_smith":
+            from src.tasks.swe_smith.task import SweSmithTask
+
+            rel = os.environ.get("CODEBASE_EVAL_DATASET", "data/swe_smith/pilot.jsonl")
+            dataset_path = str(root / rel)
+            task = SweSmithTask(
+                dataset_path=dataset_path, schedule=None,
+                max_steps_per_issue=max_steps, seed=seed,
+            )
+            task.dataset_path = dataset_path
+            order = type("Order", (), {"instance_ids": instance_ids, "stage_labels": stage_labels})()
+            task._schedule_instance_ids = list(instance_ids)
+            task._schedule_stage_lookup = stage_lookup_for(order)
+            task._schedule_stage_sizes = []
+            _last = None
+            for label in stage_labels:
+                if label != _last:
+                    task._schedule_stage_sizes.append(1)
+                    _last = label
+                else:
+                    task._schedule_stage_sizes[-1] += 1
+            return task
         if _ORIG_SINGULARITY_EXEC_ARGS is None:
             os.environ.pop("CLBENCH_SINGULARITY_EXEC_ARGS", None)
         else:
@@ -702,14 +750,35 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
                 feedback_text = obs.content
                 # 命令为空时补一句客观事实(没找到完整 bash 块); 仅当生成确实被长度上限
                 # 掐断(finish=length)时, 才提"可能是超长"——超长只是可能原因之一, 不断言。
+                # CODEBASE_MULTIBLOCK_FEEDBACK=1(修复选项 a, 默认关): 多块被拒时反馈
+                # 陈述真实原因("N 个块, 只允许 1 个")。旧文案("没找到完整块")对多块
+                # 场景是误导——模型无法自诊断, 发展出"终端坏了/块被吞"等错误理论(实测
+                # 空反馈后复发概率为基线 3-5 倍)。
+                _mb_feedback = os.environ.get("CODEBASE_MULTIBLOCK_FEEDBACK", "").strip().lower() in (
+                    "1", "true", "yes", "on",
+                )
+                _n_blocks = len(_BASH_BLOCK_RE.findall(clean_act or ""))
                 if not str(getattr(action, "command", "") or "").strip():
-                    _note = "No complete ```bash code block was found in your previous response."
+                    if _mb_feedback and _n_blocks >= 2:
+                        _note = (
+                            f"Your previous response contained {_n_blocks} ```bash code blocks; "
+                            "exactly ONE is required, so no command was executed. "
+                            "Reply with a single ```bash block containing one command."
+                        )
+                    else:
+                        _note = "No complete ```bash code block was found in your previous response."
                     if act_finish == "length":
                         _note += (
                             f" It may have been cut off by the "
                             f"{sampling_params.get('max_new_tokens', 'response')}-token response limit."
                         )
                     feedback_text = f"{obs.content}\n{_note}"
+                elif _n_blocks >= 2:
+                    # take-first 开启且执行了第一个块: 仍提醒契约, 防止多块形态被强化。
+                    feedback_text = (
+                        f"{obs.content}\nNote: your response contained {_n_blocks} ```bash blocks; "
+                        "only the FIRST was executed. Use exactly one ```bash block per turn."
+                    )
                 query = step_result.next_query
             else:
                 step_budget_exhausted = True
@@ -755,7 +824,17 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
                 # 失败仍为 0。eval(input.evaluation)保持 clbench 官方步数口径, 不动。
                 if not input.evaluation and bool(getattr(outcome_obj, "success", False)):
                     _turns_used = max(1, min(len(transcript), max_steps_per_issue))
-                    reward = round(1.0 - (_turns_used - 1) / max_steps_per_issue, 4)
+                    # CODEBASE_STEP_GRACE (2026-07-24): the first N steps are
+                    # regret-free — solves within the grace budget score a full
+                    # 1.0, and regret accrues only for steps beyond it (shifted
+                    # linear, no cliff at the boundary). Motivation: the step
+                    # discount priced verification rituals out of the policy
+                    # (case study §5.1); a grace window makes an 8-step verified
+                    # solve score the same as a 5-step blind one. Default 0
+                    # reproduces the official formula exactly.
+                    _grace = int(os.environ.get("CODEBASE_STEP_GRACE", "0") or 0)
+                    _regret = max(0, _turns_used - 1 - _grace)
+                    reward = round(1.0 - _regret / max_steps_per_issue, 4)
                 baseline = float(baselines.get(outcome_obj.instance_id, 0.0))
                 outcome = {
                     "instance_id": outcome_obj.instance_id,
@@ -920,6 +999,27 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
                     bonus=float(os.environ.get("CODEBASE_WRITE_FORMAT_BONUS", "0.1")),
                 )
                 _write_signal = "format_gated_downstream"
+            elif _write_mode == "gated_windowed":
+                # format 门控 × K 窗差 (user 2026-08-02): 给跨题积累定价, 治
+                # gated_downstream 只给下一题定价导致的 memory 短视退化。
+                from examples.codebase_adaption.codebase_advantage import (
+                    gated_windowed_rewards,
+                    memory_format_ok,
+                )
+                fmt_by_k = {
+                    int(wp["rewrite_idx"]): memory_format_ok(
+                        wp["audit"].get("memory") or "",
+                        wp["audit"].get("previous_memory") or "",
+                    )
+                    for wp in write_points
+                }
+                write_rewards = gated_windowed_rewards(
+                    rewards_seq,
+                    fmt_by_k,
+                    window=int(os.environ.get("CODEBASE_WRITE_WINDOW", "3")),
+                    bonus=float(os.environ.get("CODEBASE_WRITE_FORMAT_BONUS", "0.1")),
+                )
+                _write_signal = "format_gated_windowed"
             elif _write_mode == "downstream":
                 # 裸下游: R(M_k)=reward[k+1]; 末位无下游则省略。GRPO 组内归一化承担难度。
                 write_rewards = {
@@ -948,7 +1048,7 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
                 # 审计标签必须无条件刷新: :856 的初值是 delta 名字, 只在 gated 分支
                 # 刷新曾导致 downstream 组轨迹标签撒谎(2026-07-18 误报事故)
                 wp["audit"]["write_signal"] = _write_signal
-                if _write_mode == "gated_downstream":
+                if _write_mode in ("gated_downstream", "gated_windowed"):
                     wp["audit"]["format_ok"] = bool(fmt_by_k.get(k))
                 sample.metadata = {
                     **meta,
@@ -990,6 +1090,45 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
         except Exception:
             pass
 
+    # ACT exploration reward (方案③, user 2026-08-03): judge each memory delta M_{k-1}->M_k at
+    # episode end and attach the score to that trial's ACT samples; reward_post_process turns it
+    # into adv += beta * explore_adv. Runs after the try/finally so partially-completed episodes
+    # still get their finished trials judged; judge_explore never raises (None on any failure, so
+    # a failed trial simply carries no score). Training only; beta=0 (default) skips everything.
+    explore_by_trial: dict[int, dict] = {}
+    if not input.evaluation and summaries:
+        from examples.codebase_adaption.codebase_advantage import explore_beta
+
+        if explore_beta(args) > 0:
+            from examples.codebase_adaption.codebase_judge import judge_explore
+
+            prevs = ["" if k == 0 else summaries[k - 1] for k in range(len(summaries))]
+            results = await asyncio.gather(
+                *[judge_explore(prevs[k], summaries[k]) for k in range(len(summaries))]
+            )
+            explore_by_trial = {k: r for k, r in enumerate(results) if r is not None}
+            if len(explore_by_trial) < len(summaries):
+                print(
+                    f"[codebase_judge] WARNING episode {episode_id}: judge coverage "
+                    f"{len(explore_by_trial)}/{len(summaries)} — missing trials get no explore signal",
+                    flush=True,
+                )
+            for sample in samples:
+                md = sample.metadata or {}
+                res = explore_by_trial.get(md.get("trial_pos")) if md.get("phase") == "act" else None
+                if res is not None:
+                    md["explore_score"] = res["explore_score"]
+                    md["explore_dims"] = {
+                        d: res[d]
+                        for d in (
+                            "new_discoveries",
+                            "error_correction",
+                            "verification_targets",
+                            "non_redundant_change",
+                        )
+                    }
+                    sample.metadata = md
+
     for sample in samples:
         sample.metadata = {
             **(sample.metadata or {}),
@@ -1024,6 +1163,7 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
             "summaries": summaries,
             "write_audit": write_audit,
             "trials": trials,
+            "act_explore": explore_by_trial,
         }
     )
     return GenerateFnOutput(samples=samples)
