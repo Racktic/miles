@@ -140,6 +140,12 @@ class RolloutDataSource(DataSource):
 
         path = os.path.join(self.args.load, f"rollout/global_dataset_state_dict_{rollout_id}.pt")
         if not os.path.exists(path):
+            if rollout_id is not None and rollout_id >= 0:
+                raise RuntimeError(
+                    f"Dataset state {path} not found while resuming (start_rollout_id-1={rollout_id}); "
+                    "refusing to silently restart data consumption from offset 0. "
+                    "Resume WITHOUT --start-rollout-id so miles derives it from the checkpoint."
+                )
             logger.info(f"Checkpoint {path} does not exist.")
             return
 
