@@ -166,6 +166,57 @@ your_command_here
 
 _BASH_BLOCK_RE = re.compile(r"```bash\s*\n(.*?)\n```", re.DOTALL)
 
+# 围栏代码块的语言标签(用于区分"写了块, 但标签不是 bash"这一类)。
+_ANY_FENCE_RE = re.compile(r"```([A-Za-z0-9_+-]*)\s*\n", re.M)
+# 空命令时附给模型的默认说明。对"围栏没闭合""压根没写代码块"是准确的; 对下面两类不准确。
+_EMPTY_CMD_NOTE_GENERIC = "No complete ```bash code block was found in your previous response."
+# opt-in(默认关): 空命令时按实际成因给反馈, 而不是一律说"没找到完整的 ```bash 块"。
+# 默认关: 改反馈=改训练条件, 半途开启会让同一条 run 前后不一致; 新 run 再启用。
+_MULTIBLOCK_FEEDBACK = os.environ.get("CODEBASE_MULTIBLOCK_FEEDBACK", "0").strip().lower() in (
+    "1",
+    "true",
+    "yes",
+    "on",
+)
+
+
+def _empty_command_note(text: str) -> str:
+    """按实际成因说明这一轮为什么没执行命令(由 CODEBASE_MULTIBLOCK_FEEDBACK 启用)。
+
+    解析器规则: 恰好 1 个 ```bash 块才执行, 0 个或 ≥2 个一律置空(不挑选)。
+    但默认说明是 "No complete ```bash code block was found", 这句话在两类高频场景下
+    帮不上忙, 模型无法自诊断, 于是发展出"终端坏了/块被吞了"等错误理论并反复重犯:
+
+      · 写了 ≥2 个块 —— 这句话是**假的**(块又多又完整)。
+      · 写成 ```python 等非 bash 标签 —— 这句话是真的, 但没告诉它"只有 ```bash 会被执行"。
+
+    实测(deltawin3 全部 93 个 rollout / 274282 轮, 其中判空 22992 轮):
+    ≥2 块 61.4%, 非 bash 标签 20.6%, 其余(围栏没闭合/无代码块)18.1%
+    —— 最后一类沿用默认说明即可, 本来就准确。合计改写 81.9%。
+
+    收尾句必须是"先推理、再一个块": system 模板明写 "Never output a bash code block
+    by itself", 只说"回一个块"会与该契约冲突。
+
+    只改反馈文本, 不改"多块判空"这条规则本身(动作语义不变)。
+    验证: scripts/test_empty_command_note.py --full(全量回放 + 四条健全性断言)。
+    """
+    t = text or ""
+    n_bash = len(_BASH_BLOCK_RE.findall(t))
+    if n_bash >= 2:
+        return (
+            f"Your previous response contained {n_bash} ```bash code blocks; "
+            "exactly ONE is required, so no command was executed. "
+            "Reply with your reasoning first, then exactly ONE ```bash block containing one command."
+        )
+    # 标签为空(```)或就是 bash(即围栏没闭合)时不走这支: 对它们默认说明是准确的。
+    if n_bash == 0 and any(tag.lower() not in ("", "bash") for tag in _ANY_FENCE_RE.findall(t)):
+        return (
+            "Your previous response contained a code block, but it was not a ```bash block; "
+            "only ```bash blocks are executed, so no command ran. "
+            "Reply with your reasoning first, then exactly ONE ```bash block containing one command."
+        )
+    return _EMPTY_CMD_NOTE_GENERIC
+
 
 def _apply_text_format_override() -> None:
     """把 clbench 的 JSON system 模板换成纯文本模板(仅当前进程, 幂等)。"""
@@ -753,7 +804,11 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
                 # 命令为空时补一句客观事实(没找到完整 bash 块); 仅当生成确实被长度上限
                 # 掐断(finish=length)时, 才提"可能是超长"——超长只是可能原因之一, 不断言。
                 if not str(getattr(action, "command", "") or "").strip():
-                    _note = "No complete ```bash code block was found in your previous response."
+                    _note = (
+                        _empty_command_note(clean_act)
+                        if _MULTIBLOCK_FEEDBACK
+                        else _EMPTY_CMD_NOTE_GENERIC
+                    )
                     if act_finish == "length":
                         _note += (
                             f" It may have been cut off by the "
