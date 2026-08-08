@@ -80,6 +80,46 @@ def gated_downstream_rewards(
     return out
 
 
+def gated_delta_window_rewards(
+    rewards: list[float],
+    format_ok: dict[int, bool],
+    *,
+    window: int = 3,
+    bonus: float = 0.1,
+) -> dict[int, float]:
+    """WRITE rewards with a windowed downstream *difference* (user-approved 2026-08-03).
+
+    R(M_k) = mean(reward[k+1..k+K]) - mean(reward[k-K+1..k]) + bonus * format_ok_k
+
+    - Window K (default 3): the next K issues minus the previous K issues. The
+      previous window INCLUDES issue k itself, which is the last issue solved
+      before M_k was written, so the comparison is "after writing M_k" vs
+      "before writing M_k".
+    - **Additive** gating, unlike ``gated_downstream_rewards``' multiplicative
+      one. A windowed difference can be NEGATIVE, and a multiplicative gate
+      would then make a badly-formatted memory (R=0) score HIGHER than a
+      well-formatted one before a downhill stretch (R<0) — turning format
+      failure into an escape hatch. Additive keeps the format term a constant
+      +bonus, decoupled from the sign of the difference.
+    - Windows are truncated at episode boundaries (k<K-1 has a shorter previous
+      window; k near the end has a shorter next window), same convention as
+      ``downstream_improve_rewards``. Means (not sums) so truncation does not
+      change the scale.
+    - Memories with no downstream issue at all are omitted (as legacy).
+    """
+    k_win = max(1, int(window))
+    out: dict[int, float] = {}
+    n = len(rewards)
+    for k in range(n - 1):
+        nxt = rewards[k + 1 : min(n, k + 1 + k_win)]
+        prv = rewards[max(0, k - k_win + 1) : k + 1]
+        if not nxt or not prv:
+            continue
+        f = 1.0 if format_ok.get(k) else 0.0
+        out[k] = _mean(nxt) - _mean(prv) + float(bonus) * f
+    return out
+
+
 _RK_HEADER = re.compile(r"^###\s*Repository Knowledge\s*$", re.M)
 _LP_HEADER = re.compile(r"^###\s*Lessons\s*&\s*Pitfalls\s*$", re.M)
 _ANY_HEADER = re.compile(r"^###\s+.*$", re.M)
