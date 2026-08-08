@@ -2,6 +2,7 @@ import abc
 import copy
 import logging
 import os
+import re
 from pathlib import Path
 
 import torch
@@ -140,11 +141,51 @@ class RolloutDataSource(DataSource):
 
         path = os.path.join(self.args.load, f"rollout/global_dataset_state_dict_{rollout_id}.pt")
         if not os.path.exists(path):
-            if rollout_id is not None and rollout_id >= 0:
+            # Raise only when this checkpoint demonstrably tracks dataset state and the one file
+            # we need is the one missing — that is the case where falling through would silently
+            # replay data the run already consumed. When no state file exists at all (weights-only
+            # checkpoint, or a run that never enabled rollout_global_dataset), offset 0 is the only
+            # thing we can do, so keep the original info log and let the resume proceed.
+            #
+            # This keys off the state directory rather than start_rollout_id: by the time we get
+            # here we cannot tell whether the caller passed --start-rollout-id or Megatron derived
+            # it from the checkpoint (arguments.py overwrites args.start_rollout_id in several
+            # places, and actor.py derives loaded_rollout_id + 1), and both are non-negative, so
+            # the id alone cannot gate this.
+            state_dir = os.path.join(self.args.load, "rollout")
+            existing = sorted(
+                int(m.group(1))
+                for f in (os.listdir(state_dir) if os.path.isdir(state_dir) else [])
+                if (m := re.fullmatch(r"global_dataset_state_dict_(\d+)\.pt", f))
+            )
+            if rollout_id is not None and rollout_id >= 0 and existing:
+                # train.py saves actor weights before dataset state (and with --async-save the
+                # weight save is not even synchronous), so a job killed between the two leaves
+                # iter_N on disk with no state_N — a normal crash, not misuse. Refusing outright
+                # would make such a checkpoint unresumable without editing miles, so provide an
+                # explicit, loud opt-out rather than a dead end.
+                if os.environ.get("MILES_ALLOW_MISSING_DATASET_STATE", "").strip().lower() in (
+                    "1",
+                    "true",
+                    "yes",
+                    "on",
+                ):
+                    logger.warning(
+                        f"Dataset state for rollout {rollout_id} is missing ({path}); "
+                        "MILES_ALLOW_MISSING_DATASET_STATE is set, so data consumption RESTARTS "
+                        f"FROM OFFSET 0. This run will replay data it already trained on. "
+                        f"Newest state file available: rollout {existing[-1]}."
+                    )
+                    return
                 raise RuntimeError(
-                    f"Dataset state {path} not found while resuming (start_rollout_id-1={rollout_id}); "
-                    "refusing to silently restart data consumption from offset 0. "
-                    "Resume WITHOUT --start-rollout-id so miles derives it from the checkpoint."
+                    f"Dataset state for rollout {rollout_id} is missing ({path}), but this "
+                    f"checkpoint does track dataset state: {len(existing)} file(s) present, "
+                    f"ids {existing[0]}..{existing[-1]}. Continuing would restart data consumption "
+                    "from offset 0 and silently replay data this run already trained on. This "
+                    "usually means the job died between saving weights and saving dataset state. "
+                    f"Either resume from rollout {existing[-1]} (whose state exists), or set "
+                    "MILES_ALLOW_MISSING_DATASET_STATE=1 to accept restarting data consumption "
+                    "from the beginning."
                 )
             logger.info(f"Checkpoint {path} does not exist.")
             return

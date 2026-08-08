@@ -27,7 +27,13 @@ SRC = os.path.join(HERE, "codebase_rollout.py")
 TRAJ = os.path.join(HERE, "logs/smith-4b-v3nocurr-deltawin3/traj/train")
 # clbench 侧返回的观测(FEEDBACK 第一行), 本次改动不碰它。
 OBS = "Empty command. Please provide a bash command."
-WANT = ["_BASH_BLOCK_RE", "_ANY_FENCE_RE", "_EMPTY_CMD_NOTE_GENERIC", "_empty_command_note"]
+WANT = [
+    "_BASH_BLOCK_RE",
+    "_ANY_FENCE_RE",
+    "_EMPTY_CMD_NOTE_GENERIC",
+    "_MULTIBLOCK_TAKE_FIRST",
+    "_empty_command_note",
+]
 
 fails: list[str] = []
 
@@ -42,7 +48,7 @@ def load_from_source() -> dict:
     """从真实源文件里取出被测的顶层定义并执行。"""
     src = open(SRC).read()
     tree = ast.parse(src)
-    picked, ns = [], {"re": re}
+    picked, ns = [], {"re": re, "os": os}
     for node in tree.body:
         name = None
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -145,10 +151,9 @@ def part_c(ns: dict, rollouts: list[str]) -> None:
         if k in samples:
             print(f"           新文案: {samples[k]}")
     check(changed > 0, "真实数据上确实产生了变化")
-    check(
-        all("```bash" in note_fn(a) or True for a in [""]) and note_fn("") == generic,
-        "边界: 空输入回落到原文案, 不抛异常",
-    )
+    # 旧写法是 all(... or True ...), 恒真 —— 只测了"不抛异常"这一半(FLAME review 2026-08-08)。
+    check(note_fn("") == generic, "边界: 空字符串回落到原文案")
+    check(note_fn(None) == generic, "边界: None 回落到原文案, 不抛异常")
 
 
 # ── D. 全量回放 + 健全性断言 ─────────────────────────────────────────────────
@@ -164,6 +169,13 @@ def part_d(ns: dict) -> None:
     """
     note_fn, generic = ns["_empty_command_note"], ns["_EMPTY_CMD_NOTE_GENERIC"]
     BASH, FENCE = ns["_BASH_BLOCK_RE"], ns["_ANY_FENCE_RE"]
+    # 同一份源码, 但 TAKE_FIRST=1 —— 用来验证"被执行的轮次不会收到假话"这条性质。
+    _tf = dict(ns)
+    _tf["_MULTIBLOCK_TAKE_FIRST"] = True
+    for _node in ast.parse(open(SRC).read()).body:
+        if isinstance(_node, ast.FunctionDef) and _node.name == "_empty_command_note":
+            exec(compile(ast.Module(body=[_node], type_ignores=[]), SRC, "exec"), _tf)
+    note_tf = _tf["_empty_command_note"]
     dirs = sorted(glob.glob(os.path.join(TRAJ, "rollout_*")), key=lambda p: int(p.rsplit("_", 1)[1]))
     print(f"\n【D】全量回放({len(dirs)} 个 rollout)")
     if not dirs:
@@ -172,7 +184,7 @@ def part_d(ns: dict) -> None:
 
     turns = empties = 0
     kinds: dict[str, int] = {}
-    v1 = v2 = v3 = v4 = 0  # 各性质的违例数
+    v1 = v2 = v3 = v4 = v5 = 0  # 各性质的违例数
     ex: dict[str, str] = {}
     for d in dirs:
         for f in sorted(glob.glob(os.path.join(d, "ep_*.json"))):
@@ -187,9 +199,12 @@ def part_d(ns: dict) -> None:
                     is_empty = OBS in (t.get("observation") or "")
                     out = note_fn(act)
                     if not is_empty:
-                        # P1: 命令执行了的轮次, 调用点根本不会走到这里; 但若有人误用,
-                        # 至少要保证不会对一个成功执行的响应喊"没有命令被执行"。
-                        if len(BASH.findall(act)) == 1 and out != generic:
+                        # P1: 命令真的执行了的轮次, 绝不能收到"所以没有命令被执行"这类文案。
+                        # 两种 TAKE_FIRST 取值都要过 —— 该开关打开时多块是被执行的, 若没有
+                        # 对应的守卫, 这些轮次就会被扣上"多块所以没执行"的假话。
+                        # (旧版本这里加了 len(blocks)==1 的前置条件, 使断言恒真、永远发现不了
+                        #  问题; FLAME review 2026-08-08 指出。)
+                        if out != generic or note_tf(act) != generic:
                             v1 += 1
                             ex.setdefault("P1", f"{f}")
                         continue
@@ -207,8 +222,14 @@ def part_d(ns: dict) -> None:
                         if n_bash != 0 or not any(x not in ("", "bash") for x in tags):
                             v3 += 1
                             ex.setdefault("P3", f"{f} (bash块={n_bash}, 标签={tags[:4]})")
+                    elif "empty ```bash block" in out:
+                        k = "③ 块存在但为空"
+                        blk = BASH.findall(act)
+                        if n_bash != 1 or blk[0].strip():
+                            v5 += 1
+                            ex.setdefault("P5", f"{f} (bash块={n_bash})")
                     else:
-                        k = "③④ 沿用原文案"
+                        k = "④ 沿用原文案"
                         if out != generic:
                             v4 += 1
                             ex.setdefault("P4", f"{f}")
@@ -224,8 +245,79 @@ def part_d(ns: dict) -> None:
         ("P2", v2, "「你写了 N 个块」的 N 全部等于实际块数且 ≥2"),
         ("P3", v3, "「你的块不是 bash」只在确实没有 bash 块、且有非 bash 标签时才说"),
         ("P4", v4, "其余逐字等于原文案"),
+        ("P5", v5, "「块是空的」只在恰好 1 个块且内容为空白时才说"),
     ):
         check(bad == 0, f"{name}: {desc}" + (f" —— {bad} 处违例, 例: {ex.get(name)}" if bad else ""))
+
+
+# ── E. 空块 与 TAKE_FIRST 交互 ───────────────────────────────────────────────
+def part_e(ns: dict) -> None:
+    """FLAME review 2026-08-08 指出的两类"说假话"场景。
+
+    E1 块找到了但内容为空 —— 不能说"没找到完整的块"。
+    E2 CODEBASE_MULTIBLOCK_TAKE_FIRST=1 时多块被接受(取第一块执行), 此时判空的
+       真实原因是第一块为空, 不能说"因为有多块所以没执行"。
+    """
+    print("\n【E】空块 / TAKE_FIRST 交互")
+    generic = ns["_EMPTY_CMD_NOTE_GENERIC"]
+
+    def note_with(take_first: bool, text: str) -> str:
+        """用指定的 TAKE_FIRST 取值重新执行源文件里的函数(不改源文件)。"""
+        local = dict(ns)
+        local["_MULTIBLOCK_TAKE_FIRST"] = take_first
+        src = open(SRC).read()
+        for node in ast.parse(src).body:
+            if isinstance(node, ast.FunctionDef) and node.name == "_empty_command_note":
+                exec(compile(ast.Module(body=[node], type_ignores=[]), SRC, "exec"), local)
+        return local["_empty_command_note"](text)
+
+    empty1 = "Let me run it.\n\n```bash\n\n```"
+    empty_ws = "Let me run it.\n\n```bash\n   \n```"
+    multi_ok = "Two blocks.\n\n```bash\nls\n```\n\n```bash\npytest\n```"
+
+    for lab, txt in (("单个空块", empty1), ("单个只有空白的块", empty_ws)):
+        out = note_with(False, txt)
+        print(f"  {lab}: {out}")
+        check(out != generic, f"E1 {lab}: 不再回落到「没找到完整的块」")
+        check("empty ```bash block" in out, f"E1 {lab}: 明说块是空的")
+
+    # E2: TAKE_FIRST 下多块被接受(取第一块执行), 此时不能再说"因为多块所以没执行"。
+    out = note_with(True, multi_ok)
+    print(f"  TAKE_FIRST=1 + 两个非空块: {out}")
+    check("exactly ONE is required" not in out, "E2: TAKE_FIRST 下不再谎称多块导致未执行")
+    out = note_with(False, multi_ok)
+    check("2 ```bash code blocks" in out and "exactly ONE is required" in out, "E2: TAKE_FIRST 关时仍报多块")
+
+    # E3: 「多块且第一块为空」这一支是防御性代码 —— 当前正则下不可达(空块会与后一个块
+    # 错位嵌套, findall 只返回 1 个内容以 ``` 开头的块, strip 后非空)。先把这个不可达性
+    # 断言下来, 再用桩正则直接测该分支的措辞, 免得它悄悄坏掉。
+    B = ns["_BASH_BLOCK_RE"]
+    for t in ("```bash\n\n```\n\n```bash\npytest\n```", "```bash\n   \n```\n```bash\npytest\n```"):
+        blk = B.findall(t)
+        check(
+            not (len(blk) >= 2 and not blk[0].strip()),
+            "E3: 当前正则下「多块且首块为空」不可达(空块会错位嵌套)",
+        )
+
+    class _Stub:
+        @staticmethod
+        def findall(_):
+            return ["  ", "pytest"]
+
+        @staticmethod
+        def sub(_a, _b):
+            return ""
+
+    local = dict(ns)
+    local["_MULTIBLOCK_TAKE_FIRST"] = True
+    local["_BASH_BLOCK_RE"] = _Stub
+    for node in ast.parse(open(SRC).read()).body:
+        if isinstance(node, ast.FunctionDef) and node.name == "_empty_command_note":
+            exec(compile(ast.Module(body=[node], type_ignores=[]), SRC, "exec"), local)
+    out = local["_empty_command_note"]("(桩)")
+    print(f"  [桩] TAKE_FIRST=1 且首块为空: {out}")
+    check("first one" in out and "was empty" in out, "E3: 该分支说的是「第一块为空」")
+    check("exactly ONE is required" not in out, "E3: 该分支没有归因成「多块」")
 
 
 def main() -> None:
@@ -240,6 +332,7 @@ def main() -> None:
     part_a(src)
     part_b(ns)
     part_c(ns, a.traj_rollouts)
+    part_e(ns)
     if a.full:
         part_d(ns)
 

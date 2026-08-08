@@ -178,42 +178,65 @@ _MULTIBLOCK_FEEDBACK = os.environ.get("CODEBASE_MULTIBLOCK_FEEDBACK", "0").strip
     "yes",
     "on",
 )
+# 解析器在 TAKE_FIRST 下对多块**取第一块执行**而不判空(FLAME 分支的开关, 同名读取)。
+# 这里必须跟着读: 否则两个开关同开时, 会对"多块但第一块为空"的轮次说"因为多块所以没执行",
+# 而当前配置下多块是被接受的, 真实原因是第一块空 —— 那句话就成了假话。
+_MULTIBLOCK_TAKE_FIRST = os.environ.get("CODEBASE_MULTIBLOCK_TAKE_FIRST", "0").strip().lower() in (
+    "1",
+    "true",
+    "yes",
+    "on",
+)
 
 
 def _empty_command_note(text: str) -> str:
     """按实际成因说明这一轮为什么没执行命令(由 CODEBASE_MULTIBLOCK_FEEDBACK 启用)。
 
-    解析器规则: 恰好 1 个 ```bash 块才执行, 0 个或 ≥2 个一律置空(不挑选)。
-    但默认说明是 "No complete ```bash code block was found", 这句话在两类高频场景下
-    帮不上忙, 模型无法自诊断, 于是发展出"终端坏了/块被吞了"等错误理论并反复重犯:
+    解析器规则: 恰好 1 个 ```bash 块才执行, 0 个或 ≥2 个一律置空(不挑选);
+    但 CODEBASE_MULTIBLOCK_TAKE_FIRST=1 时多块改为**取第一块执行**, 不再判空。
+    默认说明是 "No complete ```bash code block was found", 这句话在几类场景下
+    帮不上忙甚至是假的, 模型无法自诊断, 于是发展出"终端坏了/块被吞了"等错误理论并反复重犯:
 
-      · 写了 ≥2 个块 —— 这句话是**假的**(块又多又完整)。
+      · 写了 ≥2 个块(且解析器拒绝多块)—— 这句话是**假的**(块又多又完整)。
       · 写成 ```python 等非 bash 标签 —— 这句话是真的, 但没告诉它"只有 ```bash 会被执行"。
+      · 块找到了但内容为空 —— 这句话也是**假的**(FLAME review 2026-08-08 指出)。
+      · TAKE_FIRST 下的多块 —— 此时多块被接受, 判空的真实原因是第一块为空,
+        说"因为多块所以没执行"同样是假话, 故该分支读 TAKE_FIRST 后才决定措辞。
 
-    实测(deltawin3 全部 93 个 rollout / 274282 轮, 其中判空 22992 轮):
-    ≥2 块 61.4%, 非 bash 标签 20.6%, 其余(围栏没闭合/无代码块)18.1%
-    —— 最后一类沿用默认说明即可, 本来就准确。合计改写 81.9%。
-
-    收尾句必须是"先推理、再一个块": system 模板明写 "Never output a bash code block
-    by itself", 只说"回一个块"会与该契约冲突。
+    实测(deltawin3 全部 93 个 rollout / 274282 轮, 其中判空 22992 轮, TAKE_FIRST 关):
+    ≥2 块 61.4%, 非 bash 标签 20.6%, 其余(围栏没闭合/无代码块/空块)18.1%。
 
     只改反馈文本, 不改"多块判空"这条规则本身(动作语义不变)。
-    验证: scripts/test_empty_command_note.py --full(全量回放 + 四条健全性断言)。
+    验证: scripts/test_empty_command_note.py --full(全量回放 + 健全性断言)。
     """
     t = text or ""
-    n_bash = len(_BASH_BLOCK_RE.findall(t))
-    if n_bash >= 2:
+    blocks = _BASH_BLOCK_RE.findall(t)
+    n_bash = len(blocks)
+    tail = "Reply with your reasoning first, then exactly ONE ```bash block containing one command."
+    # 块存在但内容为空 —— 此时说"没找到完整的块"是假话(块找到了, 只是空的)。
+    # 命中条件: 单个空块; 或 TAKE_FIRST 下第一个块为空(该模式里多块是被接受的)。
+    if n_bash == 1 and not blocks[0].strip():
+        return f"Your previous response contained an empty ```bash block, so no command ran. {tail}"
+    if n_bash >= 2 and _MULTIBLOCK_TAKE_FIRST and not blocks[0].strip():
+        return (
+            f"Your previous response contained {n_bash} ```bash code blocks and the first one — "
+            f"the only one that runs — was empty, so no command ran. {tail}"
+        )
+    # 多块判空只在解析器确实拒绝多块时才这么说(TAKE_FIRST 下它不拒绝)。
+    if n_bash >= 2 and not _MULTIBLOCK_TAKE_FIRST:
         return (
             f"Your previous response contained {n_bash} ```bash code blocks; "
-            "exactly ONE is required, so no command was executed. "
-            "Reply with your reasoning first, then exactly ONE ```bash block containing one command."
+            f"exactly ONE is required, so no command was executed. {tail}"
         )
-    # 标签为空(```)或就是 bash(即围栏没闭合)时不走这支: 对它们默认说明是准确的。
-    if n_bash == 0 and any(tag.lower() not in ("", "bash") for tag in _ANY_FENCE_RE.findall(t)):
+    # 只有当**完全没有 bash 围栏**、却有别的语言围栏时才这么说。
+    # 若文中出现过 ```bash 却没解析出完整块, 说明是围栏没闭合(常见于生成被长度上限截断,
+    # 且此前可能已写完一个 ```python 块) —— 这时说"你的块不是 bash"是假话, 还会把模型
+    # 从真正的修法(闭合围栏 / 缩短输出)带偏。FLAME review 2026-08-08。
+    _tags = [x.lower() for x in _ANY_FENCE_RE.findall(t)]
+    if n_bash == 0 and "bash" not in _tags and any(x not in ("", "bash") for x in _tags):
         return (
             "Your previous response contained a code block, but it was not a ```bash block; "
-            "only ```bash blocks are executed, so no command ran. "
-            "Reply with your reasoning first, then exactly ONE ```bash block containing one command."
+            f"only ```bash blocks are executed, so no command ran. {tail}"
         )
     return _EMPTY_CMD_NOTE_GENERIC
 
@@ -1025,6 +1048,28 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
                     bonus=float(os.environ.get("CODEBASE_WRITE_FORMAT_BONUS", "0.1")),
                 )
                 _write_signal = "format_gated_downstream"
+            elif _write_mode == "gated_delta_window":
+                # R(M_k)=mean(reward[k+1..k+K])-mean(reward[k-K+1..k])+bonus*format_ok
+                # 加法门控: 窗口差分可为负, 乘法门控会让"写坏格式"(得0)优于
+                # "写对格式但后续下滑"(得负), 使格式失败变成躲避惩罚的手段。
+                from examples.codebase_adaption.codebase_advantage import (
+                    gated_delta_window_rewards,
+                    memory_format_ok,
+                )
+                fmt_by_k = {
+                    int(wp["rewrite_idx"]): memory_format_ok(
+                        wp["audit"].get("memory") or "",
+                        wp["audit"].get("previous_memory") or "",
+                    )
+                    for wp in write_points
+                }
+                write_rewards = gated_delta_window_rewards(
+                    rewards_seq,
+                    fmt_by_k,
+                    window=int(os.environ.get("CODEBASE_WRITE_DELTA_WINDOW", "3")),
+                    bonus=float(os.environ.get("CODEBASE_WRITE_FORMAT_BONUS", "0.1")),
+                )
+                _write_signal = "gated_delta_window"
             elif _write_mode == "downstream":
                 # 裸下游: R(M_k)=reward[k+1]; 末位无下游则省略。GRPO 组内归一化承担难度。
                 write_rewards = {
@@ -1032,7 +1077,7 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
                 }
                 fmt_by_k = None
                 _write_signal = "downstream_raw"
-            else:
+            elif _write_mode in ("", "delta"):
                 fmt_by_k = None
                 write_rewards = downstream_improve_rewards(
                     gains,
@@ -1040,10 +1085,23 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
                     k0_mode=str(getattr(args, "codebase_write_k0_mode", "improve")),
                 )
                 _write_signal = "downstream_gain_improve"
+            else:
+                # 拼错的模式名过去会静默落到 delta 分支, 训了一个和你想要的完全不同的
+                # 奖励, 而 wandb 与轨迹标签都不会露馅(FLAME review 2026-08-08)。多日
+                # 实验代价太大, 宁可起不来也不要跑错。
+                raise ValueError(
+                    f"CODEBASE_WRITE_REWARD_MODE={_write_mode!r} is not a known WRITE reward mode. "
+                    "Valid values: '' or 'delta' (downstream gain improve), 'downstream', "
+                    "'gated_downstream', 'gated_delta_window'."
+                )
             for wp in write_points:
                 k = int(wp["rewrite_idx"])
                 if k not in write_rewards:
                     wp["audit"]["no_downstream"] = k >= len(gains) - 1
+                    # 跳过项也要刷新标签: :1136 的初值写死成 downstream_gain_improve,
+                    # 不刷新会让未训练条目在轨迹里谎报成另一种奖励模式(deltawin3 的
+                    # rollout_124 里 192 条 audit 有 57 条如此)。同 :1239 那条注释的坑。
+                    wp["audit"]["write_signal"] = _write_signal
                     continue
                 sample = wp["sample"]
                 sample.reward = float(write_rewards[k])
@@ -1053,7 +1111,7 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
                 # 审计标签必须无条件刷新: :856 的初值是 delta 名字, 只在 gated 分支
                 # 刷新曾导致 downstream 组轨迹标签撒谎(2026-07-18 误报事故)
                 wp["audit"]["write_signal"] = _write_signal
-                if _write_mode == "gated_downstream":
+                if fmt_by_k is not None:
                     wp["audit"]["format_ok"] = bool(fmt_by_k.get(k))
                 sample.metadata = {
                     **meta,
