@@ -183,11 +183,18 @@ class RolloutDataSource(DataSource):
                     f"ids {existing[0]}..{existing[-1]}. Continuing would restart data consumption "
                     "from offset 0 and silently replay data this run already trained on. This "
                     "usually means the job died between saving weights and saving dataset state. "
-                    f"Either resume from rollout {existing[-1]} (whose state exists), or set "
-                    "MILES_ALLOW_MISSING_DATASET_STATE=1 to accept restarting data consumption "
-                    "from the beginning."
+                    # load() is called with start_rollout_id - 1, and state id N means "after
+                    # rollout N", so the id to pass is the newest state id plus one.
+                    f"Either pass --start-rollout-id {existing[-1] + 1} (state {existing[-1]} "
+                    "exists), or set MILES_ALLOW_MISSING_DATASET_STATE=1 to accept restarting "
+                    "data consumption from the beginning."
                 )
-            logger.info(f"Checkpoint {path} does not exist.")
+            # No state file at all: nothing to resume from, so offset 0 is the only option — but
+            # say so at warning level, since it silently changes what data the run consumes.
+            logger.warning(
+                f"No dataset state found at {path} and none present under {state_dir}; "
+                "data consumption starts from offset 0."
+            )
             return
 
         logger.info(f"load metadata from {path}")

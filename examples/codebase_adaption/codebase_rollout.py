@@ -178,33 +178,44 @@ _MULTIBLOCK_FEEDBACK = os.environ.get("CODEBASE_MULTIBLOCK_FEEDBACK", "0").strip
     "yes",
     "on",
 )
-# 解析器在 TAKE_FIRST 下对多块**取第一块执行**而不判空(FLAME 分支的开关, 同名读取)。
-# 这里必须跟着读: 否则两个开关同开时, 会对"多块但第一块为空"的轮次说"因为多块所以没执行",
-# 而当前配置下多块是被接受的, 真实原因是第一块空 —— 那句话就成了假话。
-_MULTIBLOCK_TAKE_FIRST = os.environ.get("CODEBASE_MULTIBLOCK_TAKE_FIRST", "0").strip().lower() in (
-    "1",
-    "true",
-    "yes",
-    "on",
-)
+# WRITE 奖励模式在**模块导入期**校验, 而不是等采样到一半才发现。
+# 教训(FLAME review 2026-08-08): 校验原先放在 generate() 里, 而那段整个位于 episode 级
+# try/except(故障隔离)之内, 于是拼错模式名不会让作业起不来, 反而是每个 episode 完整跑完
+# → 末尾抛异常 → 被隔离逻辑接住 → 伪造一条 env_error outcome、丢掉全部 WRITE 样本、
+# 照常训练 ACT 样本, 变成"100% env_error 还在拿污染数据训练"。比它要防的问题更糟。
+# 放在导入期还顺带覆盖 eval-only 的 run —— 那条路径根本不进写奖励分支。
+_VALID_WRITE_REWARD_MODES = ("", "delta", "downstream", "gated_downstream", "gated_delta_window")
+_WRITE_REWARD_MODE = os.environ.get("CODEBASE_WRITE_REWARD_MODE", "").strip().lower()
+if _WRITE_REWARD_MODE not in _VALID_WRITE_REWARD_MODES:
+    raise ValueError(
+        f"CODEBASE_WRITE_REWARD_MODE={_WRITE_REWARD_MODE!r} is not a known WRITE reward mode. "
+        f"Valid values: {_VALID_WRITE_REWARD_MODES!r} "
+        "('' and 'delta' both select the downstream gain-improve reward)."
+    )
 
 
 def _empty_command_note(text: str) -> str:
     """按实际成因说明这一轮为什么没执行命令(由 CODEBASE_MULTIBLOCK_FEEDBACK 启用)。
 
-    解析器规则: 恰好 1 个 ```bash 块才执行, 0 个或 ≥2 个一律置空(不挑选);
-    但 CODEBASE_MULTIBLOCK_TAKE_FIRST=1 时多块改为**取第一块执行**, 不再判空。
+    **本函数的措辞必须与本文件里 _response_from_text 的判定完全一致**:
+    该函数的规则是 `command = blocks[0].strip() if len(blocks) == 1 else ""`,
+    即恰好 1 个 ```bash 块才执行, 0 个或 ≥2 个一律置空。上一版从另一条分支
+    (orchard, 那里的解析器有 CODEBASE_MULTIBLOCK_TAKE_FIRST 取第一块的分支)
+    抄了个同名开关来抑制多块文案 —— 但本分支的解析器根本不看那个变量, 结果是
+    开关一开就把**准确**的"你写了 N 个块"换成了假的"没找到完整的块"(FLAME
+    review 2026-08-08, 净回归)。已撤除; 两条分支合并时应先对齐 _response_from_text,
+    再决定文案, 而不是跨分支复制开关。test_empty_command_note.py 里有一条断言
+    盯着解析器规则, 规则一改测试就会失败, 强制重新对齐。
+
     默认说明是 "No complete ```bash code block was found", 这句话在几类场景下
     帮不上忙甚至是假的, 模型无法自诊断, 于是发展出"终端坏了/块被吞了"等错误理论并反复重犯:
 
-      · 写了 ≥2 个块(且解析器拒绝多块)—— 这句话是**假的**(块又多又完整)。
+      · 写了 ≥2 个块 —— 这句话是**假的**(块又多又完整)。
       · 写成 ```python 等非 bash 标签 —— 这句话是真的, 但没告诉它"只有 ```bash 会被执行"。
-      · 块找到了但内容为空 —— 这句话也是**假的**(FLAME review 2026-08-08 指出)。
-      · TAKE_FIRST 下的多块 —— 此时多块被接受, 判空的真实原因是第一块为空,
-        说"因为多块所以没执行"同样是假话, 故该分支读 TAKE_FIRST 后才决定措辞。
+      · 单个块但内容为空 —— 这句话也是**假的**(FLAME review 2026-08-08 指出)。
 
-    实测(deltawin3 全部 93 个 rollout / 274282 轮, 其中判空 22992 轮, TAKE_FIRST 关):
-    ≥2 块 61.4%, 非 bash 标签 20.6%, 其余(围栏没闭合/无代码块/空块)18.1%。
+    实测(deltawin3 全部 93 个 rollout / 274282 轮, 其中判空 22992 轮):
+    ≥2 块 61.4%, 非 bash 标签 18.4%, 空块 0.02%, 其余(围栏没闭合/无代码块)20.2%。
 
     只改反馈文本, 不改"多块判空"这条规则本身(动作语义不变)。
     验证: scripts/test_empty_command_note.py --full(全量回放 + 健全性断言)。
@@ -213,27 +224,25 @@ def _empty_command_note(text: str) -> str:
     blocks = _BASH_BLOCK_RE.findall(t)
     n_bash = len(blocks)
     tail = "Reply with your reasoning first, then exactly ONE ```bash block containing one command."
-    # 块存在但内容为空 —— 此时说"没找到完整的块"是假话(块找到了, 只是空的)。
-    # 命中条件: 单个空块; 或 TAKE_FIRST 下第一个块为空(该模式里多块是被接受的)。
+    # 单个块但内容为空 —— 说"没找到完整的块"是假话(块找到了, 只是空的)。
+    # 注意"空块 + 后面还有块"不会走到这里: 正则回溯会把两者并成 1 个内容为 ``` 的块,
+    # 命令非空, 解析器会真的去执行 ``` —— 那是解析器层面的问题, 不在本函数职责内。
     if n_bash == 1 and not blocks[0].strip():
         return f"Your previous response contained an empty ```bash block, so no command ran. {tail}"
-    if n_bash >= 2 and _MULTIBLOCK_TAKE_FIRST and not blocks[0].strip():
-        return (
-            f"Your previous response contained {n_bash} ```bash code blocks and the first one — "
-            f"the only one that runs — was empty, so no command ran. {tail}"
-        )
-    # 多块判空只在解析器确实拒绝多块时才这么说(TAKE_FIRST 下它不拒绝)。
-    if n_bash >= 2 and not _MULTIBLOCK_TAKE_FIRST:
+    if n_bash >= 2:
         return (
             f"Your previous response contained {n_bash} ```bash code blocks; "
             f"exactly ONE is required, so no command was executed. {tail}"
         )
-    # 只有当**完全没有 bash 围栏**、却有别的语言围栏时才这么说。
-    # 若文中出现过 ```bash 却没解析出完整块, 说明是围栏没闭合(常见于生成被长度上限截断,
-    # 且此前可能已写完一个 ```python 块) —— 这时说"你的块不是 bash"是假话, 还会把模型
-    # 从真正的修法(闭合围栏 / 缩短输出)带偏。FLAME review 2026-08-08。
-    _tags = [x.lower() for x in _ANY_FENCE_RE.findall(t)]
-    if n_bash == 0 and "bash" not in _tags and any(x not in ("", "bash") for x in _tags):
+    # 只有当**没有任何可执行的 bash 围栏**、却有别的语言围栏时才这么说。
+    # 抑制条件按**原样大小写**比较, 与 _BASH_BLOCK_RE 的大小写敏感一致:
+    #   · 小写 ```bash 却没解析出完整块 → 围栏没闭合(常被长度上限截断, 且此前可能已写完
+    #     一个 ```python 块), 说"你的块不是 bash"是假话, 还会把模型从真正的修法带偏;
+    #   · 大写 ```Bash → 执行正则永远匹配不到, 它**就是**"不是 ```bash 块"的一种,
+    #     这句提示恰恰是它需要的。若这里也 lower 后比较, 就会把它一起抑制掉(回归)。
+    # FLAME review 2026-08-08 两条合并。
+    _tags = _ANY_FENCE_RE.findall(t)
+    if n_bash == 0 and "bash" not in _tags and any(x != "" for x in _tags):
         return (
             "Your previous response contained a code block, but it was not a ```bash block; "
             f"only ```bash blocks are executed, so no command ran. {tail}"
@@ -1028,7 +1037,9 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
             #   delta(缺省/空)   R(M_k)=mean(gain[k+1..])-mean(gain[..k])  —— 均值回归 bias 对照
             #   downstream        R(M_k)=reward[k+1]                        —— 裸下游, 无 format 无 delta
             #   gated_downstream  R(M_k)=format_ok*(reward[k+1]+bonus)      —— 严格 format 门控(2026-07-17)
-            _write_mode = os.environ.get("CODEBASE_WRITE_REWARD_MODE", "").strip().lower()
+            # 用导入期已校验过的那份, 不再重读环境变量 —— 两处各读一次会让"校验过的值"
+            # 和"实际分派用的值"有机会分叉。
+            _write_mode = _WRITE_REWARD_MODE
             rewards_seq = [float(o.get("reward", 0.0)) for o in outcomes]
             if _write_mode == "gated_downstream":
                 from examples.codebase_adaption.codebase_advantage import (
@@ -1086,13 +1097,13 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
                 )
                 _write_signal = "downstream_gain_improve"
             else:
-                # 拼错的模式名过去会静默落到 delta 分支, 训了一个和你想要的完全不同的
-                # 奖励, 而 wandb 与轨迹标签都不会露馅(FLAME review 2026-08-08)。多日
-                # 实验代价太大, 宁可起不来也不要跑错。
-                raise ValueError(
-                    f"CODEBASE_WRITE_REWARD_MODE={_write_mode!r} is not a known WRITE reward mode. "
-                    "Valid values: '' or 'delta' (downstream gain improve), 'downstream', "
-                    "'gated_downstream', 'gated_delta_window'."
+                # 走不到: 模块导入期已校验过 _WRITE_REWARD_MODE(见文件顶部)。留着是为了
+                # 万一将来加了新模式却忘了在这里分派, 能立刻炸而不是静默落到 delta。
+                # 注意本段位于 episode 级 try/except 之内, 抛在这里只会被故障隔离接住,
+                # 所以真正的校验必须留在导入期, 不能只靠这一条。
+                raise AssertionError(
+                    f"WRITE reward mode {_write_mode!r} passed import-time validation but has no "
+                    "dispatch branch here — add one."
                 )
             for wp in write_points:
                 k = int(wp["rewrite_idx"])

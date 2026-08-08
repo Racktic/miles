@@ -31,7 +31,6 @@ WANT = [
     "_BASH_BLOCK_RE",
     "_ANY_FENCE_RE",
     "_EMPTY_CMD_NOTE_GENERIC",
-    "_MULTIBLOCK_TAKE_FIRST",
     "_empty_command_note",
 ]
 
@@ -165,17 +164,11 @@ def part_d(ns: dict) -> None:
       P2 说"你写了 N 个块"时, N 必须等于实际完整块数, 且 N>=2;
       P3 说"你的块不是 ```bash"时, 实际完整 bash 块数必须为 0,
          且确实存在一个标签既非空也非 bash 的围栏(否则就是在撒谎);
-      P4 其余一律逐字等于原文案。
+      P4 其余一律逐字等于原文案;
+      P5 "块是空的"只在恰好 1 个块且内容为空白时才说。
     """
     note_fn, generic = ns["_empty_command_note"], ns["_EMPTY_CMD_NOTE_GENERIC"]
     BASH, FENCE = ns["_BASH_BLOCK_RE"], ns["_ANY_FENCE_RE"]
-    # 同一份源码, 但 TAKE_FIRST=1 —— 用来验证"被执行的轮次不会收到假话"这条性质。
-    _tf = dict(ns)
-    _tf["_MULTIBLOCK_TAKE_FIRST"] = True
-    for _node in ast.parse(open(SRC).read()).body:
-        if isinstance(_node, ast.FunctionDef) and _node.name == "_empty_command_note":
-            exec(compile(ast.Module(body=[_node], type_ignores=[]), SRC, "exec"), _tf)
-    note_tf = _tf["_empty_command_note"]
     dirs = sorted(glob.glob(os.path.join(TRAJ, "rollout_*")), key=lambda p: int(p.rsplit("_", 1)[1]))
     print(f"\n【D】全量回放({len(dirs)} 个 rollout)")
     if not dirs:
@@ -200,11 +193,9 @@ def part_d(ns: dict) -> None:
                     out = note_fn(act)
                     if not is_empty:
                         # P1: 命令真的执行了的轮次, 绝不能收到"所以没有命令被执行"这类文案。
-                        # 两种 TAKE_FIRST 取值都要过 —— 该开关打开时多块是被执行的, 若没有
-                        # 对应的守卫, 这些轮次就会被扣上"多块所以没执行"的假话。
                         # (旧版本这里加了 len(blocks)==1 的前置条件, 使断言恒真、永远发现不了
                         #  问题; FLAME review 2026-08-08 指出。)
-                        if out != generic or note_tf(act) != generic:
+                        if out != generic:
                             v1 += 1
                             ex.setdefault("P1", f"{f}")
                         continue
@@ -250,74 +241,60 @@ def part_d(ns: dict) -> None:
         check(bad == 0, f"{name}: {desc}" + (f" —— {bad} 处违例, 例: {ex.get(name)}" if bad else ""))
 
 
-# ── E. 空块 与 TAKE_FIRST 交互 ───────────────────────────────────────────────
+# ── E. 空块 / 与解析器判定保持一致 ────────────────────────────────────────────
 def part_e(ns: dict) -> None:
-    """FLAME review 2026-08-08 指出的两类"说假话"场景。
+    """FLAME review 2026-08-08 的两类"说假话"场景, 外加一条防跨分支复制的护栏。
 
     E1 块找到了但内容为空 —— 不能说"没找到完整的块"。
-    E2 CODEBASE_MULTIBLOCK_TAKE_FIRST=1 时多块被接受(取第一块执行), 此时判空的
-       真实原因是第一块为空, 不能说"因为有多块所以没执行"。
+    E2 文案必须与本文件 _response_from_text 的判定一致。上一版从 orchard 分支抄了
+       CODEBASE_MULTIBLOCK_TAKE_FIRST 来抑制多块文案, 但本分支解析器不看那个变量,
+       开关一开反而把准确文案换成假话。这里直接盯住解析器源码里的判定规则:
+       规则一变(比如合并了 orchard 的 take-first), 测试立刻失败, 强制重新对齐文案。
+    E3 "空块 + 后面还有块"不进空命令路径 —— 正则回溯会并成 1 个内容为 ``` 的块,
+       解析器会真的去执行 ```。这是解析器层面的既有问题, 这里断言其真实后果, 免得
+       被"不可达"三个字轻轻带过。
     """
-    print("\n【E】空块 / TAKE_FIRST 交互")
-    generic = ns["_EMPTY_CMD_NOTE_GENERIC"]
+    print("\n【E】空块 / 与解析器判定一致")
+    note_fn, generic = ns["_empty_command_note"], ns["_EMPTY_CMD_NOTE_GENERIC"]
+    src = open(SRC).read()
 
-    def note_with(take_first: bool, text: str) -> str:
-        """用指定的 TAKE_FIRST 取值重新执行源文件里的函数(不改源文件)。"""
-        local = dict(ns)
-        local["_MULTIBLOCK_TAKE_FIRST"] = take_first
-        src = open(SRC).read()
-        for node in ast.parse(src).body:
-            if isinstance(node, ast.FunctionDef) and node.name == "_empty_command_note":
-                exec(compile(ast.Module(body=[node], type_ignores=[]), SRC, "exec"), local)
-        return local["_empty_command_note"](text)
-
-    empty1 = "Let me run it.\n\n```bash\n\n```"
-    empty_ws = "Let me run it.\n\n```bash\n   \n```"
-    multi_ok = "Two blocks.\n\n```bash\nls\n```\n\n```bash\npytest\n```"
-
-    for lab, txt in (("单个空块", empty1), ("单个只有空白的块", empty_ws)):
-        out = note_with(False, txt)
+    for lab, txt in (
+        ("单个空块", "Let me run it.\n\n```bash\n\n```"),
+        ("单个只有空白的块", "Let me run it.\n\n```bash\n   \n```"),
+    ):
+        out = note_fn(txt)
         print(f"  {lab}: {out}")
         check(out != generic, f"E1 {lab}: 不再回落到「没找到完整的块」")
         check("empty ```bash block" in out, f"E1 {lab}: 明说块是空的")
 
-    # E2: TAKE_FIRST 下多块被接受(取第一块执行), 此时不能再说"因为多块所以没执行"。
-    out = note_with(True, multi_ok)
-    print(f"  TAKE_FIRST=1 + 两个非空块: {out}")
-    check("exactly ONE is required" not in out, "E2: TAKE_FIRST 下不再谎称多块导致未执行")
-    out = note_with(False, multi_ok)
-    check("2 ```bash code blocks" in out and "exactly ONE is required" in out, "E2: TAKE_FIRST 关时仍报多块")
+    # E2: 解析器规则 = 恰好 1 块才执行; 文案里的多块分支正是建立在这条规则上。
+    check(
+        'command = blocks[0].strip() if len(blocks) == 1 else ""' in src,
+        "E2: 解析器仍是「恰好 1 块才执行」—— 规则若变, 多块文案需重新评估",
+    )
+    # 用 AST 查真实的名字引用, 不看注释/docstring —— 否则解释"为何撤除"的那段文字
+    # 自己就会把断言匹配掉。
+    _fn = next(
+        n for n in ast.parse(src).body
+        if isinstance(n, ast.FunctionDef) and n.name == "_empty_command_note"
+    )
+    _names = {n.id for n in ast.walk(_fn) if isinstance(n, ast.Name)}
+    check(
+        not any("TAKE_FIRST" in x for x in _names),
+        f"E2: 文案函数代码里不再引用 TAKE_FIRST 类开关(实际引用: {sorted(_names)})",
+    )
+    out = note_fn("Two blocks.\n\n```bash\nls\n```\n\n```bash\npytest\n```")
+    check("2 ```bash code blocks" in out, "E2: 多块仍如实报块数(不受任何环境变量抑制)")
 
-    # E3: 「多块且第一块为空」这一支是防御性代码 —— 当前正则下不可达(空块会与后一个块
-    # 错位嵌套, findall 只返回 1 个内容以 ``` 开头的块, strip 后非空)。先把这个不可达性
-    # 断言下来, 再用桩正则直接测该分支的措辞, 免得它悄悄坏掉。
+    # E3: 空块后面还有块 → 解析器把 command 设成 ```, 真的会去执行, 不走空命令路径。
     B = ns["_BASH_BLOCK_RE"]
     for t in ("```bash\n\n```\n\n```bash\npytest\n```", "```bash\n   \n```\n```bash\npytest\n```"):
         blk = B.findall(t)
+        cmd = blk[0].strip() if len(blk) == 1 else ""
         check(
-            not (len(blk) >= 2 and not blk[0].strip()),
-            "E3: 当前正则下「多块且首块为空」不可达(空块会错位嵌套)",
+            len(blk) == 1 and cmd == "```",
+            f"E3: 「空块+后续块」被并成 1 块, 解析出的命令是 {cmd!r}(会被真的执行, 属解析器既有问题)",
         )
-
-    class _Stub:
-        @staticmethod
-        def findall(_):
-            return ["  ", "pytest"]
-
-        @staticmethod
-        def sub(_a, _b):
-            return ""
-
-    local = dict(ns)
-    local["_MULTIBLOCK_TAKE_FIRST"] = True
-    local["_BASH_BLOCK_RE"] = _Stub
-    for node in ast.parse(open(SRC).read()).body:
-        if isinstance(node, ast.FunctionDef) and node.name == "_empty_command_note":
-            exec(compile(ast.Module(body=[node], type_ignores=[]), SRC, "exec"), local)
-    out = local["_empty_command_note"]("(桩)")
-    print(f"  [桩] TAKE_FIRST=1 且首块为空: {out}")
-    check("first one" in out and "was empty" in out, "E3: 该分支说的是「第一块为空」")
-    check("exactly ONE is required" not in out, "E3: 该分支没有归因成「多块」")
 
 
 def main() -> None:
