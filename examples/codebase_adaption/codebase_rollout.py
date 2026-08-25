@@ -102,6 +102,110 @@ def _encode_prompt(state, messages, enable_thinking=None):
     return [int(t) for t in enc["input_ids"]]
 
 
+# ── ACT thinking mode (CODEBASE_ACT_THINKING=1, default off) ─────────────────
+# Every ACT turn generates a <think>…</think> block before the visible answer.
+# The Qwen3.5 chat template strips think blocks from all but the latest
+# assistant turn when re-rendering history, so re-encoding `messages` each turn
+# (the default path) would (a) drop earlier thinking from the model's context
+# and (b) drop it from the packed training sequence — only the last turn's
+# thinking would ever be trained, and earlier answers would be trained under a
+# context they were not sampled from. To keep rollout and training on the same
+# token sequence we follow the TITO / verl / tmax approach: the trial context is
+# an append-only token buffer — first prompt via the template, then the model's
+# own output ids, then hand-rendered ChatML for injected user turns. Rendering
+# below matches `qwen3.5_fixed.jinja` with clear_thinking=False byte-for-byte
+# (see scripts/validate_act_thinking.py).
+
+
+def _act_thinking_enabled() -> bool:
+    return os.environ.get("CODEBASE_ACT_THINKING", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _split_think(text: str) -> tuple[str, str]:
+    """(think, visible). Open tag lives in the prompt, so output holds only `</think>`.
+    An unclosed think block (cut off by the length cap) yields visible == ""."""
+    text = text or ""
+    if "</think>" in text:
+        think, visible = text.split("</think>", 1)
+        return think.strip(), visible.strip()
+    if "<think>" in text:
+        return text.split("<think>", 1)[1].strip(), ""
+    return "", text.strip()
+
+
+class _ActTokenCtx:
+    """Append-only token context for one ACT trial in thinking mode.
+
+    `ids` is the full sequence fed to the engine; `mask` covers ids[prompt_len:]
+    (1 = model-generated, 0 = injected env/user text) and becomes the loss mask.
+    """
+
+    def __init__(self, tokenizer, prompt_ids: list[int]):
+        self.tokenizer = tokenizer
+        self.ids: list[int] = list(prompt_ids)
+        self.prompt_len = len(prompt_ids)
+        self.mask: list[int] = []
+        # Sampler (sglang) log-probs aligned 1:1 with ids[prompt_len:]; 0.0 on
+        # injected env tokens (mask 0) and on a synthetic <|im_end|>. Consumed
+        # only when --use-tis / --get-mismatch-metrics is on (see
+        # _pack_act_token_sample); otherwise ignored.
+        self.lps: list[float] = []
+        self._im_end = tokenizer.convert_tokens_to_ids("<|im_end|>")
+
+    def add_model(self, resp_ids: list[int], resp_lps: list[float] | None = None) -> None:
+        ids = [int(t) for t in resp_ids]
+        lps = [float(x) for x in (resp_lps or [])]
+        if len(lps) != len(ids):
+            # Engine did not return per-token log-probs (or lengths disagree):
+            # fall back to zeros so the sample stays well-formed.
+            lps = [0.0] * len(ids)
+        # The engine returns the <|im_end|> stop token when it finishes cleanly; a
+        # length-capped turn has none, so close it the way the template would.
+        if not ids or ids[-1] != self._im_end:
+            ids.append(self._im_end)
+            lps.append(0.0)  # forced token, never sampled -> no sampler log-prob
+        self.ids.extend(ids)
+        self.mask.extend([1] * len(ids))
+        self.lps.extend(lps)
+
+    def add_user(self, contents: list[str]) -> None:
+        # "\n" closes the previous assistant turn (template emits "<|im_end|>\n");
+        # then each user message; then the thinking-mode generation prompt.
+        text = "\n" + "".join(f"<|im_start|>user\n{c}<|im_end|>\n" for c in contents)
+        text += "<|im_start|>assistant\n<think>\n"
+        ids = self.tokenizer(text, add_special_tokens=False)["input_ids"]
+        self.ids.extend(int(t) for t in ids)
+        self.mask.extend([0] * len(ids))
+        self.lps.extend([0.0] * len(ids))
+
+
+def _attach_rollout_logprobs(args) -> bool:
+    """Attach sampler log-probs to ACT samples only when miles will consume them
+    (TIS / mismatch metrics). Keeps the default path byte-identical."""
+    return bool(getattr(args, "use_tis", False) or getattr(args, "get_mismatch_metrics", False))
+
+
+def _pack_act_token_sample(seed, ctx: "_ActTokenCtx", trial_pos: int, args=None):
+    response_length = len(ctx.ids) - ctx.prompt_len
+    if response_length <= 0 or not any(ctx.mask):
+        return None
+    rollout_lps = None
+    if args is not None and _attach_rollout_logprobs(args) and len(ctx.lps) == response_length:
+        rollout_lps = list(ctx.lps)
+    return Sample(
+        group_index=seed.group_index,
+        index=seed.index,
+        prompt="(packed codebase issue chat, token ctx)",
+        tokens=list(ctx.ids),
+        response="(packed codebase issue)",
+        response_length=response_length,
+        loss_mask=list(ctx.mask),
+        rollout_log_probs=rollout_lps,
+        status=Sample.Status.COMPLETED,
+        metadata={"phase": "act", "trial_pos": int(trial_pos)},
+    )
+
+
 def _encode_prompt_with_fifo(
     state,
     messages: list[dict[str, str]],
@@ -343,24 +447,16 @@ def _response_from_text(query, text: str):
     步数预算, 模型下一轮重试)。注意: 这里的解析结果只喂给 task.step 执行——
     进对话历史和训练样本的始终是模型原文(clean_act), 与解析无关。
 
-    多块判空的例外开关 CODEBASE_MULTIBLOCK_TAKE_FIRST=1(2026-08-06, 多块循环分析
-    后的修复选项 b): ≥2 个 bash 块时取第一个执行而非判空。背景: 多块→判空→
-    "没找到完整块"的误导反馈曾让 actonly/gated 陷入自我误诊循环(单段最长 36 turn,
-    r104 期烧掉 25-30% 轮次), 是 actonly 崩溃的第一阶段主通道。默认关闭以保持
-    在跑实验的可比性; 配套的反馈文案修复见 CODEBASE_MULTIBLOCK_FEEDBACK。
+    多块一律判空, 没有"取第一块执行"的例外(用户决策 2026-08-08: 不会考虑只执行
+    第一条命令, 所以那个开关 CODEBASE_MULTIBLOCK_TAKE_FIRST 已删除)。多块循环这个
+    问题改由反馈文案解决——把误导性的"没找到完整块"换成真实成因, 见
+    CODEBASE_MULTIBLOCK_FEEDBACK; 动作语义保持不变, 在跑实验因此仍可比。
     """
     action_cls = query.response_schema
     fields = getattr(action_cls, "model_fields", {})
     text = text or ""
     blocks = _BASH_BLOCK_RE.findall(text)
-    if len(blocks) == 1:
-        command = blocks[0].strip()
-    elif len(blocks) > 1 and os.environ.get(
-        "CODEBASE_MULTIBLOCK_TAKE_FIRST", ""
-    ).strip().lower() in ("1", "true", "yes", "on"):
-        command = blocks[0].strip()
-    else:
-        command = ""
+    command = blocks[0].strip() if len(blocks) == 1 else ""
     thought = _BASH_BLOCK_RE.sub("", text).strip()
     payload = {}
     if "command" in fields:
@@ -645,6 +741,9 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
     episode_id = f"{split}:{shuffle_seed}:{seed.group_index}"
     max_steps_per_issue = _int_env_or_arg("CODEBASE_MAX_STEPS_PER_ISSUE", args, "codebase_max_steps_per_issue", 40)
     instance_cap = _int_env_or_arg("CODEBASE_NUM_ACTS_CAP", args, "codebase_num_acts_cap", 0)
+    act_think = _act_thinking_enabled()
+    if act_think and no_memory:
+        raise ValueError("CODEBASE_ACT_THINKING is not supported together with CODEBASE_NO_MEMORY")
 
     try:
         while query is not None:
@@ -660,8 +759,10 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
             step_result = None
             first_turn = True
             step_budget_exhausted = False
+            act_ctx: _ActTokenCtx | None = None
 
             for turn_idx in range(max_steps_per_issue):
+                pending_user: list[str] = []
                 if feedback_text:
                     feedback_message = {
                         "role": "user",
@@ -669,6 +770,7 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
                     }
                     messages.append(feedback_message)
                     trial_messages.append(dict(feedback_message))
+                    pending_user.append(feedback_message["content"])
                 if no_memory:
                     user_content = query.prompt or "(no content)"
                 else:
@@ -687,9 +789,16 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
                 )
                 messages.append({"role": "user", "content": user_content})
                 trial_messages.append({"role": "user", "content": user_content})
+                pending_user.append(user_content)
 
                 truncated_now = 0
-                if no_memory:
+                if act_think:
+                    if act_ctx is None:
+                        act_ctx = _ActTokenCtx(state.tokenizer, _encode_prompt(state, messages, enable_thinking=True))
+                    else:
+                        act_ctx.add_user(pending_user)
+                    prompt_ids = act_ctx.ids
+                elif no_memory:
                     prompt_ids, truncated_now = _encode_prompt_with_fifo(
                         state,
                         messages,
@@ -705,7 +814,14 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
                     _structured_act_params(sampling_params, query),
                 )
                 clean_act = _strip_special(act_text)
-                action = _response_from_text(query, clean_act)
+                # Thinking mode: the think block stays in the token context (act_ctx) but is
+                # invisible to the action parser, to WRITE, and to the multi-block feedback.
+                if act_think:
+                    act_ctx.add_model(_resp_ids, _resp_lps)
+                    act_think_text, act_visible = _split_think(clean_act)
+                else:
+                    act_think_text, act_visible = "", clean_act
+                action = _response_from_text(query, act_visible)
                 response = _clbench_response(action, {"raw_response": clean_act, "finish": act_finish})
 
                 # 训练崩塌修复: assistant 上下文/训练文本必须是模型真实采样的原文(clean_act),
@@ -714,9 +830,11 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
                 # 训练, 一次更新就教会模型输出空命令(实测 step1 起 completed 0/160, ACT advantage 全 0)。
                 # 离线 clbench 无此问题: 它走 provider 强制 structured output, parse 不会失败且无训练。
                 # 结构化 action 仍保留在 transcript 的 "action" 字段(_jsonable)供审计。
+                # Thinking mode: `messages` keeps the raw text for audit only (the engine context
+                # is act_ctx); `trial_messages` feeds WRITE, which sees the visible answer only.
                 assistant_context = clean_act
                 messages.append({"role": "assistant", "content": assistant_context})
-                trial_messages.append({"role": "assistant", "content": assistant_context})
+                trial_messages.append({"role": "assistant", "content": act_visible if act_think else assistant_context})
                 first_turn = False
 
                 step_result = await asyncio.to_thread(task.step, response)
@@ -728,7 +846,8 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
                         "instance_id": instance_id,
                         "memory_in": memory_in if len(transcript) == 0 else None,
                         "user": user_content,
-                        "assistant": clean_act,
+                        "assistant": act_visible if act_think else clean_act,
+                        "assistant_think": act_think_text if act_think else None,
                         "assistant_context": assistant_context if no_memory else None,
                         "action": _jsonable(action),
                         "act_finish": act_finish,
@@ -757,7 +876,7 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
                 _mb_feedback = os.environ.get("CODEBASE_MULTIBLOCK_FEEDBACK", "").strip().lower() in (
                     "1", "true", "yes", "on",
                 )
-                _n_blocks = len(_BASH_BLOCK_RE.findall(clean_act or ""))
+                _n_blocks = len(_BASH_BLOCK_RE.findall(act_visible or ""))
                 if not str(getattr(action, "command", "") or "").strip():
                     if _mb_feedback and _n_blocks >= 2:
                         _note = (
@@ -773,12 +892,6 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
                             f"{sampling_params.get('max_new_tokens', 'response')}-token response limit."
                         )
                     feedback_text = f"{obs.content}\n{_note}"
-                elif _n_blocks >= 2:
-                    # take-first 开启且执行了第一个块: 仍提醒契约, 防止多块形态被强化。
-                    feedback_text = (
-                        f"{obs.content}\nNote: your response contained {_n_blocks} ```bash blocks; "
-                        "only the FIRST was executed. Use exactly one ```bash block per turn."
-                    )
                 query = step_result.next_query
             else:
                 step_budget_exhausted = True
@@ -793,13 +906,17 @@ async def generate(input: GenerateFnInput) -> GenerateFnOutput:
                 done = step_result.done
                 feedback_text = step_result.observation.content if no_memory else None
 
-            act_sample = _pack_act_sample(
-                state,
-                seed,
-                "",
-                trial_messages,
-                trial_pos,
-            )
+            if act_think:
+                # Train on the exact token sequence the engine saw (think blocks included).
+                act_sample = _pack_act_token_sample(seed, act_ctx, trial_pos, args) if act_ctx is not None else None
+            else:
+                act_sample = _pack_act_sample(
+                    state,
+                    seed,
+                    "",
+                    trial_messages,
+                    trial_pos,
+                )
             # Bound over-length ACT samples with miles' native truncation: tail-trim
             # the response to fit seq_length, or drop the whole sample if the prompt
             # alone already exceeds it. Prevents a single >seq_length sample from

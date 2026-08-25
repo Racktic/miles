@@ -5,7 +5,7 @@
 #   [TRAIN] swe_bench_cl 训练参数(无 --fakeroot)
 #   [EVAL ] codebase_adaptation 默认参数(带 --fakeroot)—— babel 7/13 崩的路径
 set -uo pipefail
-MILES_SIF=/home/qixinx/images/miles_dev-202606081341.sif
+MILES_SIF=/project/flame/qixinx/images/miles_dev-202606081341.sif
 SIF=$(ls /project/flame/qixinx/swebench_sifs/sympy__sympy-*.sif | head -1)
 SCR=/tmp/qixinx; mkdir -p "$SCR/tmp" "$SCR/apptainer_tmp" "$SCR/apptainer_cache" "$SCR/proot"
 HOST_APPTAINER_PREFIX=/home/qixinx/apps/apptainer

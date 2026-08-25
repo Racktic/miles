@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
-# v3nocurr explore run (2026-08-03, user-specified 方案③):
-#   - EXACT copy of train_4b_v3nocurr_gated.sh (same v3 pool + shuffle, 191
-#     rollouts = one epoch, gated_downstream WRITE reward, filter on) with ONE
-#     delta: the ACT exploration reward is enabled (CODEBASE_ACT_EXPLORE_BETA=0.3).
-#     At episode end an LLM judge (gpt-5-mini) scores each memory delta
-#     M_{k-1}->M_k on 4 dims; the score is standardized within the same
-#     ("act", group, trial) GRPO groups and added as adv += 0.3 * explore_adv
-#     to that trial's ACT sample. Task rewards and WRITE reward are untouched.
-#   - Third single-delta arm alongside grace12 (ACT step grace) and memwin3
-#     (WRITE windowed delta), all sharing the gated base for attribution.
-# Usage: nohup bash scripts/train_4b_v3nocurr_explore.sh > logs/smith-4b-v3nocurr-explore.console.log 2>&1 &
+# v3nocurr ACT-only + ACT thinking (2026-08-18, user-specified): naive control
+# for smith-4b-v3nocurr-explore-gwin-think. Same as train_4b_v3nocurr_actonly_v3think.sh
+# (TRAIN_ACT_ONLY=1: WRITE prompt v3 + WRITE thinking on, memory written/consumed
+# but WRITE gets no gradient; DROP_ZERO_STD_GROUPS=1) plus, to match the think arm:
+#   - CODEBASE_ACT_THINKING=1     (think block kept in context and trained)
+#   - CODEBASE_MULTIBLOCK_FEEDBACK=1
+#   - SEQ_LEN 20480 = MAX_TOK_PER_GPU (thinking runs are longer; 24576 OOMed)
+#   - SAVE_INTERVAL 4 / EVAL 8 / NUM_ROLLOUT 191
+# No exploration reward, no gated WRITE reward.
+# Usage: nohup bash scripts/train_4b_v3nocurr_actonly_think.sh > /tmp/qixinx/smith-4b-v3nocurr-actonly-think.console.log 2>&1 &
 set -euo pipefail
 SD="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -17,9 +16,12 @@ SD="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 export RAY_task_events_report_interval_ms=0
 export RAY_health_check_failure_threshold=10
 export RAY_health_check_period_ms=30000
+export RAY_grpc_client_keepalive_time_ms=60000
+export RAY_grpc_client_keepalive_timeout_ms=30000
 
-export CODEBASE_WRITE_REWARD_MODE=gated_downstream
-export CODEBASE_WRITE_FORMAT_BONUS=0.1
+export CODEBASE_TRAIN_ACT_ONLY=1
+export CODEBASE_ACT_THINKING=1
+export CODEBASE_MULTIBLOCK_FEEDBACK=1
 export CODEBASE_WRITE_PROMPT_V3=1
 export CODEBASE_WRITE_THINKING=1
 export CODEBASE_NO_OFFLOAD=1
@@ -27,32 +29,26 @@ export CODEBASE_SGLANG_RECAPTURE_PATCH=1
 export CODEBASE_RAY_SUPERVISED=1
 export TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC=3600
 
-# --- ACT exploration reward (the single delta vs the gated arm) ---
-export CODEBASE_ACT_EXPLORE_BETA=0.3
-# Judge key comes from the repo-level .env (OPENAI_API_KEY -> gpt-5-mini default).
-if [ -f "/home/qixinx/miles/.env" ]; then
-  set -a; source /home/qixinx/miles/.env; set +a
-fi
-export CODEBASE_JUDGE_API_KEY="${OPENAI_API_KEY:?OPENAI_API_KEY missing from /home/qixinx/miles/.env}"
-export CODEBASE_JUDGE_API_BASE="https://api.openai.com/v1"
-export CODEBASE_JUDGE_MODEL="gpt-5-mini"
-export CODEBASE_JUDGE_TIMEOUT=60
-export CODEBASE_JUDGE_CONCURRENCY=64
-
 export CODEBASE_TRAIN_TASK=swe_smith
 export CODEBASE_TRAIN_DATASET=data/swe_smith/top53.jsonl
 # CODEBASE_ROLLOUT_SHUFFLE intentionally NOT set: default 1 = shuffled.
 export CODEBASE_DROP_ZERO_STD_GROUPS=1
 
-export CODEBASE_RUN_ID="smith-4b-v3nocurr-explore"
-export CODEBASE_WANDB_RUN_ID="${CODEBASE_RUN_ID}"
+export CODEBASE_RUN_ID="smith-4b-v3nocurr-actonly-think"
+export CODEBASE_WANDB_RUN_ID="${CODEBASE_RUN_ID}-0818"
 export CODEBASE_USE_WANDB=1
 export WANDB_PROJECT="miles-codebase-adaption" WANDB_GROUP="swesmith-4b"
 
+# 191 rollouts x 2 episodes = 382 = exactly one full epoch of the v3 pool
+# (user decision 2026-07-30): the shuffled arm consumes the same data
+# multiset as a full curriculum pass would — order is the only variable.
+# At 120 the shuffled arm would eat 3x more hard instances than v3curr's
+# first 240 episodes did (15.8% vs 5.4%), confounding reward comparisons.
 export CODEBASE_NUM_ROLLOUT=191
 export CODEBASE_EVAL_INTERVAL=8
+# Interval 8 (user decision 2026-07-30); tighten only if a crash-loop reappears.
 export CODEBASE_SAVE_INTERVAL=4
-export CODEBASE_SEQ_LEN=24576
+export CODEBASE_SEQ_LEN=20480
 export CODEBASE_MAX_TOK_PER_GPU=20480   # proven-stable value (24576 OOMed twice on think-class runs)
 export CODEBASE_MODEL_SCRIPT="qwen3.5-4B.sh"
 
@@ -77,5 +73,5 @@ export APPTAINERENV_APPTAINER_TMPDIR="$SCR/apptainer_tmp" APPTAINERENV_APPTAINER
 bash "${SD}/scripts/ensure_torch_dist_local.sh"
 
 cd "$SD"
-echo "=== V3NOCURR EXPLORE RUN=${CODEBASE_RUN_ID} on $(hostname) (ckpt/traj: ${NODE_RUN_DIR}) ==="
+echo "=== V3NOCURR ACT-ONLY + ACT-THINK (WRITE untrained) RUN=${CODEBASE_RUN_ID} on $(hostname) (ckpt/traj: ${NODE_RUN_DIR}) ==="
 bash ./launch_codebase_adaption_apptainer.sh

@@ -2,7 +2,7 @@
 # babel 迁移对照:DEPLOY_NEW_CLUSTER.md §4.1;DEPLOY_ROOT=/project/flame/qixinx。
 # 2026-07-18:/project/flame 被写满(余 <1G),SIF/torch_dist/pydeps 改放 /home;
 # 只有下载时已落地的 Qwen HF 权重和 240 题 SIF 库仍在 flame。腾出空间后可 mv 回去再改这里。
-export CODEBASE_MILES_SIF="${CODEBASE_MILES_SIF:-/home/qixinx/images/miles_dev-202606081341.sif}"
+export CODEBASE_MILES_SIF="${CODEBASE_MILES_SIF:-/project/flame/qixinx/images/miles_dev-202606081341.sif}"
 export CLBENCH_ROOT="${CLBENCH_ROOT:-/home/qixinx/continual-learning-bench}"
 export CLBENCH_SIF_DIR="${CLBENCH_SIF_DIR:-/project/flame/qixinx/clbench_sifs}"
 export CODEBASE_PYDEPS="${CODEBASE_PYDEPS:-/home/qixinx/miles_pydeps/codebase_py312_clean}"

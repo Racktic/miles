@@ -6,7 +6,7 @@
 set -euo pipefail
 DST="${CODEBASE_TORCH_DIST:-/tmp/qixinx/models/Qwen3.5-4B_torch_dist}"
 HF_SRC="${CODEBASE_HF_CKPT:-/project/flame/qixinx/models/Qwen3.5-4B}"
-SIF="${CODEBASE_MILES_SIF:-/home/qixinx/images/miles_dev-202606081341.sif}"
+SIF="${CODEBASE_MILES_SIF:-/project/flame/qixinx/images/miles_dev-202606081341.sif}"
 if [ -f "${DST}/latest_checkpointed_iteration.txt" ]; then
   echo "[ensure_torch_dist] SKIP: ${DST} already present"
   exit 0

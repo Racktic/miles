@@ -25,7 +25,7 @@ export CODEBASE_SAVE_DIR=/tmp/qixinx/smoke_runs/${CODEBASE_RUN_ID}/ckpt
 
 echo "### L1: 8-GPU visibility in SIF"
 source /home/qixinx/apps/apptainer/env.sh
-apptainer exec --nv --bind /project/flame,/home/qixinx /home/qixinx/images/miles_dev-202606081341.sif \
+apptainer exec --nv --bind /project/flame,/home/qixinx /project/flame/qixinx/images/miles_dev-202606081341.sif \
   python -c "import torch; n=torch.cuda.device_count(); print('cuda_devices=', n); exit(0 if n==8 else 1)" || { echo "L1_FAIL"; exit 1; }
 
 echo "### A7: ensure torch_dist on node-local /tmp"

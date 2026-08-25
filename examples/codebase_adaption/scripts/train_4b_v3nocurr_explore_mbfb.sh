@@ -1,15 +1,19 @@
 #!/usr/bin/env bash
-# v3nocurr explore run (2026-08-03, user-specified 方案③):
-#   - EXACT copy of train_4b_v3nocurr_gated.sh (same v3 pool + shuffle, 191
-#     rollouts = one epoch, gated_downstream WRITE reward, filter on) with ONE
-#     delta: the ACT exploration reward is enabled (CODEBASE_ACT_EXPLORE_BETA=0.3).
-#     At episode end an LLM judge (gpt-5-mini) scores each memory delta
-#     M_{k-1}->M_k on 4 dims; the score is standardized within the same
-#     ("act", group, trial) GRPO groups and added as adv += 0.3 * explore_adv
-#     to that trial's ACT sample. Task rewards and WRITE reward are untouched.
-#   - Third single-delta arm alongside grace12 (ACT step grace) and memwin3
-#     (WRITE windowed delta), all sharing the gated base for attribution.
-# Usage: nohup bash scripts/train_4b_v3nocurr_explore.sh > logs/smith-4b-v3nocurr-explore.console.log 2>&1 &
+# v3nocurr explore-mbfb run (2026-08-09, user-specified): rerun of the explore
+# arm with the multiblock scaffold fix — the clean test the first explore run
+# did not get.
+#   - EXACT copy of train_4b_v3nocurr_explore.sh (ACT exploration reward
+#     CODEBASE_ACT_EXPLORE_BETA=0.3, gpt-5-mini judge on memory deltas, gated
+#     base, filter on, SAVE_INTERVAL=4) with ONE delta:
+#     CODEBASE_MULTIBLOCK_FEEDBACK=1 — when a turn is emptied because the model
+#     wrote >=2 bash blocks, tell it the real cause instead of the false "no
+#     complete bash block was found". The first explore run died at r124+ in an
+#     empty-command meta-debugging spiral whose entry burned 40% of maxed-trial
+#     budget on multiblock rejections and whose misleading feedback drove the
+#     model into "system is broken" theories (see memory: explore post-mortem).
+#   - Judge, beta, rubric, grouping all unchanged on purpose: this isolates
+#     whether the scaffold fix alone lets the explore-efficiency balance hold.
+# Usage: nohup bash scripts/train_4b_v3nocurr_explore_mbfb.sh > /tmp/qixinx/smith-4b-v3nocurr-explore-mbfb.console.log 2>&1 &
 set -euo pipefail
 SD="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -43,9 +47,11 @@ export CODEBASE_TRAIN_TASK=swe_smith
 export CODEBASE_TRAIN_DATASET=data/swe_smith/top53.jsonl
 # CODEBASE_ROLLOUT_SHUFFLE intentionally NOT set: default 1 = shuffled.
 export CODEBASE_DROP_ZERO_STD_GROUPS=1
+export CODEBASE_MULTIBLOCK_FEEDBACK=1
 
-export CODEBASE_RUN_ID="smith-4b-v3nocurr-explore"
-export CODEBASE_WANDB_RUN_ID="${CODEBASE_RUN_ID}"
+export CODEBASE_RUN_ID="smith-4b-v3nocurr-explore-mbfb"
+# Date-stamped, decoupled from RUN_ID: an existing wandb id would resume into the old run.
+export CODEBASE_WANDB_RUN_ID="smith-4b-v3nocurr-explore-mbfb-0809"
 export CODEBASE_USE_WANDB=1
 export WANDB_PROJECT="miles-codebase-adaption" WANDB_GROUP="swesmith-4b"
 

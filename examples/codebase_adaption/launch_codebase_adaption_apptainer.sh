@@ -12,7 +12,7 @@ set -euo pipefail
 # (copying RHEL /lib64 deps into the container) is unnecessary here: the whole
 # prefix rides in on the /home/qixinx bind and works as-is inside the SIF.
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-MILES_SIF="${CODEBASE_MILES_SIF:-/home/qixinx/images/miles_dev-202606081341.sif}"
+MILES_SIF="${CODEBASE_MILES_SIF:-/project/flame/qixinx/images/miles_dev-202606081341.sif}"
 INNER_SCRIPT="${CODEBASE_INNER_SCRIPT:-${SCRIPT_DIR}/run_codebase_adaption_qwen3.5_4B.sh}"
 HOST_APPTAINER_PREFIX="${CODEBASE_HOST_APPTAINER_PREFIX:-/home/qixinx/apps/apptainer}"
 
