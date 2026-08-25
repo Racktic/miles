@@ -1,0 +1,5028 @@
+{
+ "instance_outcomes": [
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.combine_file__0419229c",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.combine_file__12iw26nd",
+   "reward": 0.6875
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.combine_file__27wyb8n3",
+   "reward": 0.75
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.combine_file__6qauiol0",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.combine_file__a2jtwrsv",
+   "reward": 0.1833
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.combine_file__gfqvz7g2",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.combine_file__h7jtyluj",
+   "reward": 0.0583
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.combine_file__n3dg8zhp",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.combine_file__n7xxzftl",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.combine_file__s0evenvu",
+   "reward": 0.3083
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.combine_file__xrgs93b2",
+   "reward": 0.5917
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.combine_module__q1vnqp4y",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__134k45om",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__13sincuj",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__16naowoi",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__19lonz6w",
+   "reward": 0.2625
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__1b3ukg71",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__1c675o1r",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__1iac14qb",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__1pn3ho3s",
+   "reward": 0.35
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__1vpqnjao",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__1z54n0vw",
+   "reward": 0.3875
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__1zuqjka0",
+   "reward": 0.15
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__24f5cqo6",
+   "reward": 0.0125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__25czjxam",
+   "reward": 0.7
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__25g5d0y8",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__29z9n8p7",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__2k7bskfs",
+   "reward": 0.65
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__2pfocuw9",
+   "reward": 0.8125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__2zd3851u",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__3820vga0",
+   "reward": 0.75
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__38zcmgpo",
+   "reward": 0.525
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__3948asun",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__3jop5or6",
+   "reward": 0.15
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__3k21s9gt",
+   "reward": 0.3125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__42b5p5h7",
+   "reward": 0.3375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__48wmvggq",
+   "reward": 0.2125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__495zhejs",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__4bmx6782",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__4dsquk4y",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__4emvfj11",
+   "reward": 0.4375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__4gem8lhj",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__4hkgsulq",
+   "reward": 0.4625
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__4hul0isa",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__51ibizla",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__52xli2g6",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__53727py6",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__5j2z1b5n",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__5j932xon",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__5w1ny04u",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__620421we",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__6cltsli7",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__6fk25z69",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__6iayp6ge",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__6jhtoe64",
+   "reward": 0.2875
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__6km5dndh",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__6ugwyg3j",
+   "reward": 0.25
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__715aoh4c",
+   "reward": 0.5125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__74axhcpy",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__7fjqe1ee",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__7m8z9fcy",
+   "reward": 0.7375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__7ngfvnsf",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__7plh864d",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__7uo1x1rf",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__7v6oqdas",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__7whhiqbe",
+   "reward": 0.1375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__7y3nll33",
+   "reward": 0.5875
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__81s89atb",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__82lcd6xr",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__87fxxld3",
+   "reward": 0.6625
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__8aohl2if",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__8apu2n6p",
+   "reward": 0.6
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__8dcasp3j",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__8iex3xc2",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__8j5wcg7u",
+   "reward": 0.775
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__8jflpt6w",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__8jqh6spy",
+   "reward": 0.35
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__8jw89xe6",
+   "reward": 0.6875
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__8kcpwyd9",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__8kz41tc4",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__8z7dn8vm",
+   "reward": 0.6875
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__93j2vxu4",
+   "reward": 0.6375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__9bje4wwf",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__9hn77c3s",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__9k1wqj5b",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__9lrualwu",
+   "reward": 0.5875
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__9ppxmbkr",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__9xsamqij",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__a2f703m7",
+   "reward": 0.7375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__a3pmii9n",
+   "reward": 0.3375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__a4j0bjjl",
+   "reward": 0.3125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__a68p9pmd",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__a6z0gjw2",
+   "reward": 0.7
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__aa4cl46g",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__aag8tita",
+   "reward": 0.7125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__ab620pcx",
+   "reward": 0.55
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__aid2shpa",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__anko5wz3",
+   "reward": 0.1
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__axnia51x",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__b0pf5zfl",
+   "reward": 0.6875
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__b2h9lkb7",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__b35r2dj5",
+   "reward": 0.6
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__b51w0h9v",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__b7sihzh0",
+   "reward": 0.0375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__bd1ugdut",
+   "reward": 0.175
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__bg4q7cvy",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__bhhlyn68",
+   "reward": 0.7875
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__bhshlwqf",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__bjy5d574",
+   "reward": 0.2125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__bmpp6ej8",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__bqnj2ry8",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__c0l344tm",
+   "reward": 0.75
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__c34ngroo",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__c3wjgyue",
+   "reward": 0.775
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__c512s5qy",
+   "reward": 0.275
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__c58szts1",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__c8w8kd29",
+   "reward": 0.275
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__cfo8wy7g",
+   "reward": 0.2125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__cix3oden",
+   "reward": 0.3375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__clenc07i",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__cpp8owgt",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__cr774unu",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__cubdugen",
+   "reward": 0.2625
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__cxbvbn5m",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__cxoh4815",
+   "reward": 0.7625
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__cygo8f6e",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__d1r9ha72",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__d1sx03ia",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__d8mm5oed",
+   "reward": 0.1875
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__dbg1p598",
+   "reward": 0.375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__dhylui7h",
+   "reward": 0.075
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__dlzgcasq",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__dr4pfs4n",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__duswz0y5",
+   "reward": 0.1
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__e00zclxx",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__e0va552k",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__e1s9vj26",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__e1wnzpeo",
+   "reward": 0.2375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__e7ix48e9",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__eab86l3b",
+   "reward": 0.0375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__eh9g6act",
+   "reward": 0.6875
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__ehsbmle6",
+   "reward": 0.425
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__eitsujxz",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__en9y7pxk",
+   "reward": 0.1125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__eoeu3emx",
+   "reward": 0.475
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__evutno2i",
+   "reward": 0.5375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__ez3c38dc",
+   "reward": 0.05
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__f2eg68j8",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__fcait6kt",
+   "reward": 0.0125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__fcf69vxu",
+   "reward": 0.05
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__flhqumgx",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__fowujd11",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__fpxnqluc",
+   "reward": 0.5125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__fulrw1is",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__g0v0bml5",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__g520du70",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__g6r9b7zx",
+   "reward": 0.0625
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__g8j3svhc",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__gcdkb88m",
+   "reward": 0.4375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__gdv5xwbv",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__gom9dfa8",
+   "reward": 0.1
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__gy3iyhy2",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__h151udef",
+   "reward": 0.175
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__h2sphghg",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__heusslk0",
+   "reward": 0.7
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__hexitun2",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__hf7ffl5q",
+   "reward": 0.1
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__hkky5vj9",
+   "reward": 0.2625
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__hr33b2lo",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__hrhvxik3",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__hsrycil0",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__hyvfc5ib",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__i0iuc3zm",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__i9dfraqr",
+   "reward": 0.7
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__i9ei53b4",
+   "reward": 0.275
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__if3vp9x6",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__ilithiij",
+   "reward": 0.15
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__iu8tm9uu",
+   "reward": 0.5
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__j3ez7uut",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__j7z5ltl2",
+   "reward": 0.15
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__j89e49fx",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__jaznj20q",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__jeyj7262",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__jm9u4ak8",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__jt4sd8qi",
+   "reward": 0.25
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__jziq2bim",
+   "reward": 0.075
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__k1myjr5b",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__k2tal7zj",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__k47c1mpd",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__k5nic6x2",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__k8bgdkyf",
+   "reward": 0.0375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__kbbmett3",
+   "reward": 0.75
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__kblmkwhk",
+   "reward": 0.325
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__kcjhi8sh",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__kd2kt7k9",
+   "reward": 0.4875
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__khj7emhu",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__ki1h1t9m",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__ksulo6g7",
+   "reward": 0.6375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__ktylncsn",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__kusf1bf1",
+   "reward": 0.3625
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__kyxvrs7o",
+   "reward": 0.1125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__l57yri01",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__l5tpakny",
+   "reward": 0.65
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__lj6rid6e",
+   "reward": 0.45
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__lqwcyud1",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__lz1b7mnp",
+   "reward": 0.8
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__m35rl9sy",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__m51pfywf",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__m8m6or5r",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__m9ghy304",
+   "reward": 0.2375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__mcx3hx9i",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__me7mjxyz",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__mfmko9ax",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__mmh7hzdo",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__mmvk876o",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__mqwnw2do",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__mu018lr1",
+   "reward": 0.375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__mw6aryns",
+   "reward": 0.1125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__mxmcwou7",
+   "reward": 0.525
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__n0y2s12u",
+   "reward": 0.6625
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__n1svj6vr",
+   "reward": 0.425
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__n7b2zu5z",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__nbcjk5zj",
+   "reward": 0.05
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__nkoesowq",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__nlhq3sc9",
+   "reward": 0.225
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__nolyzbvn",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__nq7xbk7h",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__nslt9bpn",
+   "reward": 0.625
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__nt16uij5",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__ntjtlzof",
+   "reward": 0.0875
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__nust1wrg",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__nwd20cvy",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__nyi3cene",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__o1fvy746",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__o45v5b0y",
+   "reward": 0.5375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__o5ptfj1l",
+   "reward": 0.0625
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__oivnhssd",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__opee9rp0",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__ozoxx9ua",
+   "reward": 0.075
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__p3e19ynj",
+   "reward": 0.6875
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__p3vm8vi6",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__p4ckz6co",
+   "reward": 0.05
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__p4glgzie",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__pbptmlm9",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__pgve9e51",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__ph0cdv8r",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__pk9g1dhl",
+   "reward": 0.2875
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__poco3cw3",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__ptpfoapr",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__pvbn2y7s",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__pyspuqki",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__pyyexqqz",
+   "reward": 0.6875
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__q0vvt93y",
+   "reward": 0.325
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__qaidw7o1",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__qajnjekb",
+   "reward": 0.7875
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__qarfhf50",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__qfg0oyu5",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__qh1d8zy5",
+   "reward": 0.6125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__qj8imwx2",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__qjw7c3u9",
+   "reward": 0.575
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__qnv2khc8",
+   "reward": 0.1
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__qpkzzo99",
+   "reward": 0.5375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__qw1r8oq5",
+   "reward": 0.025
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__r1xsukkb",
+   "reward": 0.7125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__r6kzn2vc",
+   "reward": 0.2
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__re6lkp09",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__rnurhz8o",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__ro0e0uzg",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__rqfmvcag",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__ryekjjeg",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__rzoqstoc",
+   "reward": 0.2375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__sc4pkaxr",
+   "reward": 0.45
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__sk5w9qqw",
+   "reward": 0.0875
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__sv5ynm14",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__sveyddri",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__t33wemuk",
+   "reward": 0.0375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__tbdrwetp",
+   "reward": 0.4
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__tdhxgnjc",
+   "reward": 0.6625
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__tlgux2ty",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__ts1o9rtm",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__twrv2sr5",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__txovxybk",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__u4gbndlp",
+   "reward": 0.075
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__u4r4txsh",
+   "reward": 0.5
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__u7z2a99v",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__uaw6lk2u",
+   "reward": 0.4125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__uckbum8m",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__uhlk13bb",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__uiarw2xp",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__umajimh3",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__upd3ecde",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__uuqnz0gr",
+   "reward": 0.25
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__uydi115m",
+   "reward": 0.2625
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__v4bd61ol",
+   "reward": 0.775
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__vehrx3oh",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__vgjzfu35",
+   "reward": 0.5625
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__vi1i4pzn",
+   "reward": 0.7125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__viln15l4",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__vtyfu0e3",
+   "reward": 0.3125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__w0f5szng",
+   "reward": 0.65
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__w1koc471",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__w3h98a1n",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__wat88k6c",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__wh4d7csi",
+   "reward": 0.475
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__wj673aog",
+   "reward": 0.3
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__wpk8fba9",
+   "reward": 0.1875
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__wssyk6n7",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__wt0re1nk",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__wvsy085h",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__x03f241f",
+   "reward": 0.5625
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__x04r6nwx",
+   "reward": 0.1625
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__x4gg74ti",
+   "reward": 0.4625
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__x7bpru7r",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__x8i62xef",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__xbkj5v4d",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__xdi9u99l",
+   "reward": 0.4625
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__xfcx2xbq",
+   "reward": 0.6125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__xfu6dk6y",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__xhwvjesj",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__xim0rt3k",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__xthr7n7l",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__xykzfnrf",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__xz1tgy2y",
+   "reward": 0.3
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__y345yend",
+   "reward": 0.0125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__y7pgmems",
+   "reward": 0.275
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__ybbfv6eq",
+   "reward": 0.45
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__yh28qpeo",
+   "reward": 0.6
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__ykrgk5mk",
+   "reward": 0.2375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__ym7o6eql",
+   "reward": 0.1125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__yohlxy1q",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__yrv04s6f",
+   "reward": 0.5875
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__yveeosyq",
+   "reward": 0.6125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__z0s93u9s",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__z4oy0681",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__z4v8faei",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__z597oqm7",
+   "reward": 0.55
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__z98f82px",
+   "reward": 0.325
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__zd5s66gv",
+   "reward": 0.0125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__zeyxxbdf",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__zh9v4tti",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__zm419qgw",
+   "reward": 0.1
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__zmu2wcp9",
+   "reward": 0.1
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__zposxuu8",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__zt8mgvzr",
+   "reward": 0.5125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_basic__zx0qycks",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_class_rm_base__dmzrtaho",
+   "reward": 0.5125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_class_rm_base__pbcisg03",
+   "reward": 0.15
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_class_rm_base__tvi5h2e6",
+   "reward": 0.2375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_class_rm_base__xlgaqm3r",
+   "reward": 0.7375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_class_rm_funcs__1u5cn2cb",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_class_rm_funcs__7wyejrv4",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_class_rm_funcs__aodj9j2b",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_class_rm_funcs__mu8zy8vf",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_class_rm_funcs__pg0780rj",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_class_rm_funcs__u783dowm",
+   "reward": 0.1
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_class_rm_funcs__uya7j1v2",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_class_rm_funcs__ves1hdpe",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__0dpujitn",
+   "reward": 0.575
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__2jeidnd9",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__3j5871mt",
+   "reward": 0.0875
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__89b9nxux",
+   "reward": 0.0125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__anba6csh",
+   "reward": 0.475
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__b2z3ssy9",
+   "reward": 0.2375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__c7aw3ms7",
+   "reward": 0.025
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__cguh6h4z",
+   "reward": 0.2875
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__chtzekto",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__dh9frdf2",
+   "reward": 0.3
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__fgg9btz6",
+   "reward": 0.1375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__fhv256x8",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__iihzodbr",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__ik1ndo54",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__l4r1yulw",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__ll021u5g",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__m2an5l1r",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__mtrm8lw9",
+   "reward": 0.425
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__n7s4l3m3",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__naraw1mo",
+   "reward": 0.35
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__nq4klkxp",
+   "reward": 0.0875
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__nxt8zxqx",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__ofbg5wf9",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__qxny5m1y",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__razm485k",
+   "reward": 0.125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__uktqbmmo",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__whe2nyjn",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__xo23oh95",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__yhqagww9",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__yykvylfl",
+   "reward": 0.3875
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__zpbgg9y6",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_invert_if__zwhpkn1s",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_shuffle__047pa4yh",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_shuffle__09k2qtso",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_shuffle__4bupd3r0",
+   "reward": 0.1125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_shuffle__4gamjkl0",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_shuffle__5biee7qz",
+   "reward": 0.1875
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_shuffle__5t9r765t",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_shuffle__anxzzwjc",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_shuffle__bgg4yjdl",
+   "reward": 0.2375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_shuffle__dzt66ojw",
+   "reward": 0.35
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_shuffle__e4m0j3v3",
+   "reward": 0.325
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_shuffle__grrrodv3",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_shuffle__i9idnoim",
+   "reward": 0.4625
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_shuffle__id3oew6a",
+   "reward": 0.075
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_shuffle__igg446l5",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_shuffle__mkaaftrp",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_shuffle__owrrr7v5",
+   "reward": 0.2625
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_shuffle__qh4diu45",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_shuffle__rpes16xs",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_shuffle__v1uikeb8",
+   "reward": 0.5375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_ctrl_shuffle__yc8iarbo",
+   "reward": 0.0875
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_op_change__vywy1tvz",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_op_swap__7yhyuwzi",
+   "reward": 0.175
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_assign__22z55zzx",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_assign__46fcq9i3",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_assign__4pmym4aa",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_assign__5yji6kj9",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_assign__6ywust7j",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_assign__8f04j69g",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_assign__8vazxeft",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_assign__9v6btf1z",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_assign__a7rxm360",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_assign__cj02f5lb",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_assign__da6pmq2q",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_assign__en5daijw",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_assign__lnrjnc8x",
+   "reward": 0.3125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_assign__prel1r6r",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_assign__pyaq91xd",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_assign__qahv6v2e",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_assign__s40cap60",
+   "reward": 0.125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_assign__sr4p0qb8",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_assign__vwa2ui18",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_assign__x5erdq5x",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_cond__0ezc9s5a",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_cond__0r1sepln",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_cond__1lbykq0u",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_cond__1ztgxh46",
+   "reward": 0.5
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_cond__3ked0ui2",
+   "reward": 0.2
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_cond__5u2yoyjm",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_cond__gb0johii",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_loop__1orj9732",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.func_pm_remove_loop__8a4vcz8x",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__05lbkgq3",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__0gdszhy7",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__0poae8k5",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__1sjnn80q",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__24zueesh",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__2njahj0g",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__2zixr3cr",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__3dvzi4xg",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__3t2zyuwt",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__5pvjurt9",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__5sk0hj9z",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__5vrfvoxt",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__6eprr3xv",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__6w3bpnqc",
+   "reward": 0.025
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__7k51icw9",
+   "reward": 0.1375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__9wrmgt7e",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__agr4tzxg",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__b9hw86mo",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__bbs1g97s",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__c8c0xxmo",
+   "reward": 0.25
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__efwecsa4",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__f9sn7uc5",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__ffgakcqs",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__ffkd8o8c",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__gmzegho3",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__h1j2ediv",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__h38zcr0y",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__i40803dk",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__i58665hk",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__i9fx70a0",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__k28bluu3",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__kina9rnt",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__kx1fo4xs",
+   "reward": 0.125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__la4ps4wx",
+   "reward": 0.45
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__m4poq2ci",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__mmg5ui75",
+   "reward": 0.225
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__mmlsizj4",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__mnsztn3a",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__nmeyg2pw",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__oly1tnri",
+   "reward": 0.375
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__qej2fkbn",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__sni36zgw",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__vrvrzhd5",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__vry974ol",
+   "reward": 0.2125
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__wayabezk",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__wjjkempd",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__wnwzeqi4",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__ws27d6d7",
+   "reward": 0.4
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__yago43vx",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.lm_rewrite__zwqtx1ba",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pallets__jinja.ada0a9a6.pr_1918",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.combine_file__48kmjp3b",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.combine_file__4tfaw0zk",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.combine_file__4zwk24my",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.combine_file__av4fggvx",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.combine_file__cx9xniyf",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.combine_file__fgmjmfd5",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.combine_file__fvnnwqjz",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.combine_file__gmjqtq8y",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.combine_file__janfqaui",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.combine_file__jh6tb3f6",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.combine_file__mcdbephk",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.combine_file__nw28scag",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.combine_file__pif6r3vz",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.combine_file__q7ysui13",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.combine_file__qhivf8js",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.combine_file__sescn339",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.combine_file__shzpg0zs",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.combine_file__wfsn845e",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.combine_file__x44f9cqe",
+   "reward": 0.35
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.combine_module__28s4kxk1",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.combine_module__383hro36",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.combine_module__511z43my",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.combine_module__bbk6y4a1",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.combine_module__rs1kkpkg",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__c5f6wjwv",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__d1eakkpp",
+   "reward": 0.1625
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__d8wesxu2",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__ddknrrh0",
+   "reward": 0.425
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__fkw8bthh",
+   "reward": 0.675
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__fudwob9i",
+   "reward": 0.175
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__golili41",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__hhmo7irk",
+   "reward": 0.575
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__i2g8bx3d",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__ih9ago9z",
+   "reward": 0.15
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__ioxogeeq",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__izqt5xtr",
+   "reward": 0.0375
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__jdsn5u79",
+   "reward": 0.225
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__jeutee4k",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__jvde054h",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__k6g5mo5k",
+   "reward": 0.825
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__kc0vmqzw",
+   "reward": 0.3
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__kyyqymqa",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__lha2lfx4",
+   "reward": 0.2875
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__likmel9q",
+   "reward": 0.5875
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__m7ealezf",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__mgcci4f2",
+   "reward": 0.3
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__n2kqhtxn",
+   "reward": 0.125
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__n9gigln0",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__nt72iiqy",
+   "reward": 0.6
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__ol14c4st",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__olussduu",
+   "reward": 0.0625
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__pqqsa3cs",
+   "reward": 0.2875
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__qow3susr",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__riomq4ln",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__tt7aoh4f",
+   "reward": 0.2
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__ul2a474w",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__uupy7qk6",
+   "reward": 0.725
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__uv24jeqg",
+   "reward": 0.55
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__vyodjwat",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__w4sexaix",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__w75yqh4q",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__wbebp29s",
+   "reward": 0.5
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__y3676xoa",
+   "reward": 0.6125
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__y7ba6bhd",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__ylt7x9o5",
+   "reward": 0.0375
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__yv9dw7az",
+   "reward": 0.8125
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__z5a0lt6k",
+   "reward": 0.15
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_basic__zcracavr",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_class_rm_funcs__37q1sx39",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_class_rm_funcs__hs94uqwy",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_ctrl_invert_if__3twztl3c",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_ctrl_invert_if__8l4gswkl",
+   "reward": 0.6
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_ctrl_invert_if__oepcy4l6",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_ctrl_invert_if__px4dje7u",
+   "reward": 0.025
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_ctrl_invert_if__xmtzemjf",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_ctrl_shuffle__aczfsh5r",
+   "reward": 0.2875
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_ctrl_shuffle__g1utqi4v",
+   "reward": 0.5625
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_ctrl_shuffle__ir5q5h8y",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_ctrl_shuffle__sd07lf7v",
+   "reward": 0.45
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_ctrl_shuffle__sg4tni0g",
+   "reward": 0.025
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_ctrl_shuffle__v485gwr2",
+   "reward": 0.5375
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_op_change__bhh43nrm",
+   "reward": 0.1375
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_op_change__hfibjqe1",
+   "reward": 0.3625
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_op_change__rm0oacp2",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_op_change__y9or34v4",
+   "reward": 0.4375
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_op_change_const__7x758z4l",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_op_change_const__d26azx2e",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_op_change_const__styqxb9q",
+   "reward": 0.1625
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_op_change_const__tzwq2qpb",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_op_swap__567fje69",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_op_swap__zx5lkqqx",
+   "reward": 0.4375
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_remove_assign__0oub9mw2",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_remove_assign__ff6n1ed6",
+   "reward": 0.225
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_remove_cond__8po6rain",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_remove_cond__bpkpo3ll",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_remove_cond__c0jd5wdp",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_remove_cond__j6wng7jw",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_remove_cond__ovbvrtjm",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_remove_cond__p79jr6bh",
+   "reward": 0.275
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_remove_cond__rxtrpmtz",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_remove_cond__zn47l8om",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_remove_loop__h5waue4k",
+   "reward": 0.1125
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_remove_loop__wnxadlhc",
+   "reward": 0.15
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_remove_wrapper__08703yvc",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.func_pm_remove_wrapper__z4djo20r",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.lm_rewrite__4fnuak1i",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.lm_rewrite__5ruu5168",
+   "reward": 0.1125
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.lm_rewrite__a4wa8411",
+   "reward": 0.1625
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.lm_rewrite__bgisg0p7",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.lm_rewrite__f0ohbwg2",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.lm_rewrite__gmqldfj9",
+   "reward": 0.5625
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.lm_rewrite__ktxnu4hz",
+   "reward": 0.2625
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.lm_rewrite__o5rp9u2j",
+   "reward": 0.5
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.lm_rewrite__pngsawyy",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.lm_rewrite__s3brhlk8",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.lm_rewrite__sici23s4",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.lm_rewrite__z0tjrdhe",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.lm_rewrite__zebpocc0",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.pr_2474",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "pygments__pygments.27649ebb.pr_2526",
+   "reward": 0.175
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_file__5aneapww",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_file__6lmz4ssr",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_file__6mr87k60",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_file__amh32qqu",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_file__b98sw0dh",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_file__bdzyxq2y",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_file__dyfeesvf",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_file__e3glq4nf",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_file__h1fs85cu",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_file__kejothik",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_file__n04oysu6",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_file__nwhay3ne",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_file__pbfl37if",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_file__qg91myxw",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_file__siqv4hv2",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_file__vpievks7",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_file__yb80uq9a",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__2suu3l1n",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__3qwq13ue",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__3slpq1j8",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__3uqs5jcs",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__7ely73jw",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__7jghpuno",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__7x2zxhx8",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__8la693ux",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__8ug723dt",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__aq4aottt",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__b5jgkwth",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__bzrdxdkd",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__d7jzfd7x",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__dxpfb1m8",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__dyhenhu2",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__ewa121a6",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__ewmydl2q",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__f299g1y5",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__fuyzql6w",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__gvn4szk7",
+   "reward": 0.15
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__idagba7w",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__l83tbwp3",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__m9wv6uf7",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__n402i04b",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__o0tnv74o",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__obi0nfcu",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__pjcb3drs",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__ppe7ekkm",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__qauh81n0",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__qmnh9kdo",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__qxsd17ky",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__rggpn713",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__rj65zi2y",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__sqo0du2i",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__v0en34dd",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__vw17hn22",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__vw424mwk",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__x0lzmpj4",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__x3rzaudu",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__y3hli898",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.combine_module__z3g2yppp",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__0gwm46qw",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__2h5ewy0i",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__2hoa5sr6",
+   "reward": 0.325
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__2o5fet0m",
+   "reward": 0.1
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__3mldsxdt",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__3pr2zg43",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__450o3cgn",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__47fa2ux1",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__4b9d2pe9",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__4cudtjgb",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__4ld5094d",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__4ya5yo6b",
+   "reward": 0.6375
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__5h5hz0q0",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__5liurb5h",
+   "reward": 0.2625
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__6dbaso6h",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__8d2qtis4",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__935n2thm",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__9gafkn4t",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__9yvdfppq",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__awkihszf",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__b7ao92cz",
+   "reward": 0.2625
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__bcofqwmg",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__c5mn3jzs",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__cil412fm",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__dgn7omyk",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__euaivjhp",
+   "reward": 0.15
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__fjchgbq1",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__g06o0doq",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__g3kx2x7x",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__hprtmzks",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__jzbwx09l",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__ki6n3oo4",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__kkm2vydq",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__ku0nohkg",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__mfiqb72s",
+   "reward": 0.2375
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__nricthbi",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__nup7imz8",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__ohkt1ccy",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__olv9qxyf",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__pfypcaq9",
+   "reward": 0.375
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__qg5r07h9",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__qjlq1zrh",
+   "reward": 0.2
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__r7jh47l4",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__rr7kreoy",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__td6snfzj",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__tdrra8m5",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__tes3knpn",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__ugma7v02",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__w8l3y2ft",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__wi4rjrft",
+   "reward": 0.45
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__wi79fx88",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__wnqonoid",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__xlen7rk7",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__xu4l5edn",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__ybadbay2",
+   "reward": 0.1375
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__yusdgxrb",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__zg3s17hb",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_invert_if__zkyvphmo",
+   "reward": 0.275
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__0452m5if",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__0dz45k52",
+   "reward": 0.4
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__0jpmh2is",
+   "reward": 0.5625
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__0ld3r17e",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__0n71k5az",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__0nva537d",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__0xg55cv1",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__15wcda6l",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__17mtng5y",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__1krctpib",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__1ryv0pj6",
+   "reward": 0.4
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__1v259hde",
+   "reward": 0.2
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__1yb2wzwk",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__1zjopaqv",
+   "reward": 0.225
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__25pli4wm",
+   "reward": 0.5125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__275tyk74",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__28qaqp1s",
+   "reward": 0.2625
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__2vkl1px1",
+   "reward": 0.1
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__2yibin5y",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__32h7j0b0",
+   "reward": 0.4375
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__32y1j2bk",
+   "reward": 0.1
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__3dny185x",
+   "reward": 0.325
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__3pfqt8y0",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__42ossei5",
+   "reward": 0.025
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__48dpisag",
+   "reward": 0.2625
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__4yhtohsz",
+   "reward": 0.125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__51f0pecp",
+   "reward": 0.25
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__59jw6514",
+   "reward": 0.2625
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__5bovf34w",
+   "reward": 0.3125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__5is2yuhx",
+   "reward": 0.5125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__5p66jwq4",
+   "reward": 0.5625
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__64dgmblz",
+   "reward": 0.3125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__664ik2sv",
+   "reward": 0.6125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__6kneqyly",
+   "reward": 0.025
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__6ktjt39j",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__6z7xgzzc",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__7bllt2p1",
+   "reward": 0.425
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__8f6ggzj1",
+   "reward": 0.25
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__8fuv9gz2",
+   "reward": 0.225
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__8ghsgl60",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__8p0css4a",
+   "reward": 0.575
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__8xnj8wd2",
+   "reward": 0.675
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__90uevrri",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__94cfajg8",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__9srpoanc",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__a584tffp",
+   "reward": 0.3375
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__a5cmrept",
+   "reward": 0.125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__aisalu57",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__aj6ql60u",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__apbqqwdh",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__ayaasmj0",
+   "reward": 0.275
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__b2qscrls",
+   "reward": 0.4875
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__b945alwd",
+   "reward": 0.2875
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__bd6mam10",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__bf31qn2p",
+   "reward": 0.85
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__bk7spsdg",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__bxpd7wow",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__c0gl7qdw",
+   "reward": 0.2875
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__c5lval0j",
+   "reward": 0.3875
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__cec6uywd",
+   "reward": 0.4875
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__cgh8hlrv",
+   "reward": 0.5
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__cltcd8qz",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__ctmd9mfc",
+   "reward": 0.0125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__cvvyshzw",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__d0wzor96",
+   "reward": 0.125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__d8j5krs9",
+   "reward": 0.275
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__dkugjq5q",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__ei5vckk0",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__etx03dcq",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__favd7nme",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__fipqrvx1",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__fyrd6rbk",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__g1ppopul",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__g9vvg6xb",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__gdz94061",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__ghf64cb7",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__h3fcf2ub",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__hab56eky",
+   "reward": 0.675
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__hem8qeeo",
+   "reward": 0.15
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__hgr8n2rd",
+   "reward": 0.0125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__hy676ozr",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__hzkj0q9f",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__i9xu84kl",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__jj9ai2t7",
+   "reward": 0.7
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__jjq53jtw",
+   "reward": 0.2875
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__jtkddet1",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__jz2nbize",
+   "reward": 0.4
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__k9v7dx8o",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__kawwnx7a",
+   "reward": 0.3375
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__kdfjlix5",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__kkljj8jz",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__ky2xy360",
+   "reward": 0.55
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__l5dy7nto",
+   "reward": 0.55
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__l7appwco",
+   "reward": 0.2125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__l9vtnz6k",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__le9w49mi",
+   "reward": 0.4
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__lhw5rm17",
+   "reward": 0.2
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__lnrlkabr",
+   "reward": 0.0875
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__lo44ad7y",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__lowh16dx",
+   "reward": 0.2
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__lv22qx32",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__lvh3ic74",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__lyjy8a2g",
+   "reward": 0.35
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__m52thc0b",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__m5mlqa26",
+   "reward": 0.2875
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__mcw4w3kg",
+   "reward": 0.3875
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__mi7dcyog",
+   "reward": 0.0625
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__muhjoegj",
+   "reward": 0.0625
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__n4dtwi40",
+   "reward": 0.2875
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__nads5dia",
+   "reward": 0.5
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__nyjvewa6",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__o2s3h5vh",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__o6k5w480",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__o93751o8",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__o9ykak9d",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__okjn0auc",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__oog5s9t1",
+   "reward": 0.0125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__osy35f6n",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__ot07oul0",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__p1qcq99u",
+   "reward": 0.45
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__pd5y5vrf",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__pprqo3ed",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__qd70f910",
+   "reward": 0.15
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__qekdfnfs",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__qjtihrsn",
+   "reward": 0.5125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__qojo7vye",
+   "reward": 0.175
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__qsfwdoo4",
+   "reward": 0.625
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__r2awnza2",
+   "reward": 0.3125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__roq9dbc8",
+   "reward": 0.3375
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__rq4xvhqf",
+   "reward": 0.2125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__rvnbdfv1",
+   "reward": 0.2375
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__safz5ul7",
+   "reward": 0.3
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__sdei9mn3",
+   "reward": 0.275
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__si3t8d93",
+   "reward": 0.65
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__tb772fal",
+   "reward": 0.5875
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__u0swfwg8",
+   "reward": 0.325
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__u1u32b8l",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__unklzz2u",
+   "reward": 0.3625
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__uno5vwo2",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__upfxvtsc",
+   "reward": 0.175
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__ut98ar9k",
+   "reward": 0.55
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__vagomfoj",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__vcwd894m",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__vhbobgk2",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__vxtalcj6",
+   "reward": 0.0125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__w1z1j553",
+   "reward": 0.1125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__w24qzqn1",
+   "reward": 0.1375
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__wbsk1qf7",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__wcl84km9",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__weweyu1f",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__wh8vf8jt",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__wi7lfbro",
+   "reward": 0.6
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__wpufa6lw",
+   "reward": 0.025
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__ww8c5zoj",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__wwpdwh9f",
+   "reward": 0.45
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__wxqmxk8i",
+   "reward": 0.2375
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__x0snbnw8",
+   "reward": 0.0125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__x12ivazi",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__x4a5hdh1",
+   "reward": 0.3
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__x79ik4ff",
+   "reward": 0.1375
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__xjjaistr",
+   "reward": 0.25
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__xsj1fcu5",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__xx1erkbc",
+   "reward": 0.3125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__xymqrplm",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__ycteatpr",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__yf609ji3",
+   "reward": 0.075
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__ygj5qkor",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__yhq3knjy",
+   "reward": 0.7
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__yv9tmdov",
+   "reward": 0.6625
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__z2witqv0",
+   "reward": 0.3125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__zca6z87b",
+   "reward": 0.5125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__zrquib28",
+   "reward": 0.325
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_ctrl_shuffle__zzg00q0v",
+   "reward": 0.175
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change__07a1ip9p",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change__1wthndvq",
+   "reward": 0.0375
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change__63hq80q6",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change__7l2un8k1",
+   "reward": 0.2375
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change__95zo46mm",
+   "reward": 0.7375
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change__bd1pzont",
+   "reward": 0.125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change__c07gxz00",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change__dps2iqbe",
+   "reward": 0.275
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change__eh7z1d67",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change__h3rsd3qt",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change__i15nyj5e",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change__p9uuu71h",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change__ppopmi0t",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change__s3bic552",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change__uk7pqny5",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change__v91phu5s",
+   "reward": 0.3
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change__xveg36vd",
+   "reward": 0.2625
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change_const__0f50lnst",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change_const__2d4k86ox",
+   "reward": 0.5375
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change_const__2k4howab",
+   "reward": 0.6125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change_const__8b1t9qn4",
+   "reward": 0.2125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change_const__941fzg7k",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change_const__cqtkyj2q",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change_const__fya867ml",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change_const__ikpi9udm",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change_const__j9z99fl7",
+   "reward": 0.2875
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change_const__lyo7a9gr",
+   "reward": 0.675
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change_const__n6j6v9k8",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change_const__odqmf42f",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_change_const__vhe7uttu",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__0j2w0c48",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__1cohzayt",
+   "reward": 0.4625
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__3ctak4gd",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__3xemq367",
+   "reward": 0.3375
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__42vhuto8",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__52fwbtes",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__54knfuhn",
+   "reward": 0.1625
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__8cny0vew",
+   "reward": 0.0625
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__9xskkv1z",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__ab86ce1i",
+   "reward": 0.4
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__ay0o8kaf",
+   "reward": 0.1875
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__bc0ro2pr",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__bibnqu87",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__d3m94p51",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__emte8e29",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__eq5gsn70",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__fkppwoyv",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__ge232489",
+   "reward": 0.125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__i4eeig23",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__ikkjgbox",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__iqu8xs9m",
+   "reward": 0.05
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__j3dh5ivd",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__j4z7mbu1",
+   "reward": 0.2125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__j719b9eb",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__khiwmi1i",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__nvo79b8x",
+   "reward": 0.275
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__oj3nbaes",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__ol6ro3l1",
+   "reward": 0.1625
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__ozzi6wcv",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__rx8uamf3",
+   "reward": 0.675
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__sjuhf6dv",
+   "reward": 0.225
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__ugimzzd9",
+   "reward": 0.45
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__upl2ilh5",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__uwcn0glk",
+   "reward": 0.35
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__vzs3nt3l",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__w6o3wkyx",
+   "reward": 0.3375
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__x73kohd9",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__xjeht7rs",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__xlppbkpo",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__xzapoc3k",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_op_swap__ykxyhlf8",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__09fvv91e",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__0wb2sbp0",
+   "reward": 0.2125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__16icv9s1",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__1vce19mw",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__2jp3r76t",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__2qifh9pp",
+   "reward": 0.2375
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__368zlpto",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__3djibofb",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__3f2yfisy",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__3snzg4e9",
+   "reward": 0.35
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__4k7my5vm",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__4qyelle2",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__51emxkrx",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__5ctir0dr",
+   "reward": 0.225
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__5ecgz8gn",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__5oemeab3",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__5oo25uwq",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__5qskdpgj",
+   "reward": 0.6125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__75uwuq84",
+   "reward": 0.275
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__8bct3bvl",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__8v1twdd5",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__9a4u83h2",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__a37oavkh",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__a8pwqs9g",
+   "reward": 0.175
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__ads3ucxx",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__astqa140",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__b4rbxdwf",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__bcn24cfm",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__bpx0vxov",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__cdcj6240",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__ckkfaop4",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__cmfzyvwe",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__d1rimagb",
+   "reward": 0.0625
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__da66bwbb",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__f4p352y0",
+   "reward": 0.225
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__fw82l9xa",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__g1cj5anx",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__g2mc16uw",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__g5tnjn66",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__gb0ue4bp",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__gtf491mj",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__gxg0majd",
+   "reward": 0.1125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__gxr2v6t5",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__hqmq8ng9",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__hqyllu4a",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__i6psbjkv",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__ibgyxplt",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__jp8omlqp",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__jrwp87k0",
+   "reward": 0.275
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__kz0bdtuj",
+   "reward": 0.4375
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__mavnvb9l",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__n46yhboi",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__nwmge8h5",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__o3efei4q",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__o4meegxj",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__ondxskdy",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__ot4ynxcc",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__pnboh4h1",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__qobwdkue",
+   "reward": 0.1875
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__rdpyp6ft",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__relwzzlu",
+   "reward": 0.075
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__tu0pkzxg",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__uqopc6kh",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__uzflwocb",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__wdxcrvti",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__whyfzagj",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__xf56plfv",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__xhm6rwhf",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__xnoymqjk",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__xz40m2j8",
+   "reward": 0.575
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__y0w2g6d1",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__z1h78o4o",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_assign__zyelnwi1",
+   "reward": 0.175
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__1omlo7gr",
+   "reward": 0.6125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__2caepl0l",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__2nt6fq6w",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__2pt8800l",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__30ma5pqd",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__32weprqy",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__3u376xfq",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__3x9r6ub5",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__47wssr48",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__4cirzuzz",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__4k2hz7nk",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__56fl5g7l",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__5e5h1vdf",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__65lchdzv",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__74vuarmy",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__82xlozqh",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__8ipu2ysq",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__8nyh10fo",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__9dri9kyc",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__9for4o3n",
+   "reward": 0.3
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__9s6fkwrw",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__a43jhbka",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__b4hmvdv5",
+   "reward": 0.25
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__bmvdvej0",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__c8zy5c4y",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__cbnrp8hw",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__dzwwldxx",
+   "reward": 0.2375
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__e2ihe0re",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__eaardz1b",
+   "reward": 0.1875
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__gk0sfalp",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__gvkvbddr",
+   "reward": 0.0875
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__hf9qsyex",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__inp2m4pw",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__j5zja8je",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__j8sxwyty",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__jyjoaiwl",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__kjrvdya6",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__l1pjb6xh",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__llqhpkjm",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__lx6zhjhq",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__m7o1jzpd",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__mn4nvcgc",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__nafv7kua",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__nu8fu4t5",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__o1y4n9m7",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__o3mmmnxu",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__o5bpelfe",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__p5hxqx2n",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__pap7569e",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__pqlxe04r",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__pvgfxrm1",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__r0yqols6",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__r7zveoc4",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__rgkb0tim",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__rucftg9o",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__rzmm7skz",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__s3qpst1m",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__sc1scczo",
+   "reward": 0.15
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__sy9njltz",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__t12k0ut7",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__t53oxuwj",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__tetitecy",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__u3horis8",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__ugsxg61h",
+   "reward": 0.05
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__uo6i6a3w",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__uwxb4q62",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__vbedhpfx",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__vfr475fw",
+   "reward": 0.2375
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__wp4z1q6w",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__xtoazmln",
+   "reward": 0.1625
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__xzfal0gu",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__y50v1075",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_cond__yi8ojspf",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__1hrgn84r",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__1zzq83y0",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__2ftnup8x",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__51zow39t",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__57lpajcw",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__66yl0i8h",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__76d4bvfh",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__84hlovoa",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__95z3iq1d",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__agcb5n6u",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__alg83sy1",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__b691s4hc",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__bgm5m04s",
+   "reward": 0.5125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__c7wu2nnr",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__cf42n7ut",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__d3qcy9ha",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__emfzrne2",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__ikaf3szd",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__jfomaopa",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__kritv6tl",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__kshw3ujx",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__ler1buoe",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__lr3c6mbb",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__mduimi9e",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__n2z42x33",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__nnvdvb4r",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__qnf9ohps",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__qy19m1bl",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__qyh2en2k",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__r2m94956",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__td0axxkn",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__ucbz18p6",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__ulwxz6si",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__v2o4yn7z",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__vih1tx65",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__vocb464l",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__w8jloc4n",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__whetklbt",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__wnxgvx55",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__yccwgn7a",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__yyf1zst4",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__z6y1rbjw",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__zfkf4z9y",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_loop__zniotkfk",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.func_pm_remove_wrapper__g7h3ajuv",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__0g2hcgqg",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__0uzpst6e",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__1sa4ewa7",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__1zefdldo",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__28ucmg0j",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__2fulequz",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__3njrqh39",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__3vkqsz1k",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__4a44863t",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__4tutg231",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__4x4jcxkb",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__4yh4z2fi",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__57d1a6ra",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__5d9czzp5",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__5na4gup5",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__65crukw7",
+   "reward": 0.0375
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__663t8rx9",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__6dp3fzvj",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__7prsfeeb",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__82rza9hq",
+   "reward": 0.25
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__839odpa6",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__952r2ona",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__9lfd11cr",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__9n8bawr2",
+   "reward": 0.375
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__aaducvrr",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__afxetwpi",
+   "reward": 0.1125
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__bing84f3",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__bycp2f1u",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__c3v8sp23",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__c97cuuys",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__cfjfnvhf",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__croj8akp",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__d2beqnfx",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__d4agwky0",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__dibp9npz",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__du7msnhk",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__ejwb2znw",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__f2kx6q37",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__f4qftn3p",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__fdnja206",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__fpqolxwl",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__grlpin6y",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__h12mjjxx",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__hdfmp46a",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__hlcyzp5z",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__hqb9f41y",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__i8lhwxjn",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__iua8fq3x",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__j3y8z8f5",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__jaf4i0os",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__jfj6trkz",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__jfvfb7en",
+   "reward": 0.0375
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__jytlfyc3",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__kliw2vdv",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__ld4dbcvw",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__lo9o7u28",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__loz1icrp",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__lzasqnff",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__mchmm6b4",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__mcp7jcaf",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__mfig2001",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__mr2bycj7",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__msn26web",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__mxqbqknc",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__nfigww0m",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__ng2hotsp",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__nm0glguu",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__ohf7uhjc",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__p6rz0cr8",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__pkovft2y",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__pnsrkfnn",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__ps639j0p",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__q6vhmeq5",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__qgqm56ph",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__qtlzmbwz",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__qvukosk4",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__rje32hdb",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__rvaj1c2j",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__sgfp4ebt",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__tmoi45f8",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__uh0epe7u",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__ui7zrubz",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__unfye1e6",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__vupfh0ac",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__w0henrin",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__w3nmrc62",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__w6ihcy4s",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__wxmmqkz8",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__wz366ul0",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__xfsiya9r",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__xjwrr4pk",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__y27aj77t",
+   "reward": 0.0
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__ygukitsn",
+   "reward": 0.0583
+  },
+  {
+   "instance_id": "tobymao__sqlglot.036601ba.lm_rewrite__ysv3dw0u",
+   "reward": 0.0
+  }
+ ]
+}
