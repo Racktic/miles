@@ -20,7 +20,7 @@ Clone the two published `frontiercs-ttt` branches:
 export FRONTIERCS_WORKSPACE=/home/your-user/frontiercs-workspace
 export MILES_REPOSITORY_URL=https://github.com/Racktic/miles.git
 export MILES_REVISION=frontiercs-ttt
-export FRONTIERCS_REPOSITORY_URL=https://github.com/FrontierCS/Frontier-CS.git
+export FRONTIERCS_REPOSITORY_URL=https://github.com/Racktic/Frontier-CS.git
 export FRONTIERCS_REVISION=frontiercs-ttt
 
 mkdir -p "${FRONTIERCS_WORKSPACE}"
