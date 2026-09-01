@@ -1,0 +1,35 @@
+# One Miles rollout batch contains complete, frozen-policy group episodes.
+frontiercs_training_unit: complete_group_episode
+# Empty means <FRONTIERCS_ROOT>/qwen_eval/results/frontiercs_ttt_rl.
+frontiercs_output_root: ""
+frontiercs_run_id: development
+frontiercs_judge_url: http://127.0.0.1:8081
+
+frontiercs_candidates_per_problem: 1
+frontiercs_memory_rounds: 4
+frontiercs_group_size: 3
+
+frontiercs_act_max_new_tokens: 25600
+frontiercs_write_max_new_tokens: 25600
+frontiercs_writer_max_prompt_chars: 120000
+frontiercs_diagnostics_chars_per_candidate: 12000
+frontiercs_judge_timeout_seconds: 1800
+frontiercs_judge_poll_seconds: 1
+
+# The default training formulation does not expose the previous solution or
+# raw previous diagnostics to the next ACT call.  Cross-round information must
+# pass through the group memory.
+frontiercs_act_code_context: none
+frontiercs_enable_thinking: true
+
+# K=1 does not require GRPO-style sibling normalization.  ``task_baseline``
+# can be enabled once the per-problem baseline artifact is prepared.
+frontiercs_act_advantage_mode: temporal_problem_relative
+frontiercs_task_baseline_artifact: ""
+frontiercs_act_explore_beta: 0.0
+
+# WRITE_s is rewarded only after ACT_{s+1} has been evaluated under the same
+# frozen policy.  The scale is explicit because there are fewer WRITE samples.
+frontiercs_write_reward_mode: delta
+frontiercs_write_advantage_mode: direct
+frontiercs_write_advantage_scale: 1.0

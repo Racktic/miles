@@ -1,0 +1,6 @@
+{"prompt":[{"role":"user","content":"Frontier-CS problem group color_scale"}],"metadata":{"group_id":"color_scale","problem_ids":["174","177"],"high_level_family":"graph coloring and equivalent color-count formulations"}}
+{"prompt":[{"role":"user","content":"Frontier-CS problem group sat_family"}],"metadata":{"group_id":"sat_family","problem_ids":["175","176","178","193"],"high_level_family":"SAT, Max-SAT, and binary constraint search"}}
+{"prompt":[{"role":"user","content":"Frontier-CS problem group cover_pair"}],"metadata":{"group_id":"cover_pair","problem_ids":["182","183"],"high_level_family":"vertex-cover variants and complement structure"}}
+{"prompt":[{"role":"user","content":"Frontier-CS problem group independent_clique"}],"metadata":{"group_id":"independent_clique","problem_ids":["184","185"],"high_level_family":"maximum independent set and clique complement reductions"}}
+{"prompt":[{"role":"user","content":"Frontier-CS problem group coloring_cover"}],"metadata":{"group_id":"coloring_cover","problem_ids":["186","187"],"high_level_family":"graph coloring and clique-cover reductions"}}
+{"prompt":[{"role":"user","content":"Frontier-CS problem group binary_constraints"}],"metadata":{"group_id":"binary_constraints","problem_ids":["192","193"],"high_level_family":"binary constraint optimization and local-search diagnostics"}}

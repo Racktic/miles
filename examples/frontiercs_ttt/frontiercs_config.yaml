@@ -1,0 +1,32 @@
+# Custom arguments merged into Miles by --custom-config-path.
+# G, K, and S are explicit pipeline knobs. The current group dataset uses G=3.
+# Empty means <FRONTIERCS_ROOT>/qwen_eval/results/frontiercs_ttt_rl.
+frontiercs_output_root: ""
+frontiercs_run_id: development
+frontiercs_judge_url: http://127.0.0.1:8081
+
+frontiercs_candidates_per_problem: 1
+frontiercs_memory_rounds: 2
+frontiercs_group_size: 3
+
+frontiercs_act_max_new_tokens: 25600
+frontiercs_write_max_new_tokens: 25600
+frontiercs_writer_max_prompt_chars: 120000
+frontiercs_diagnostics_chars_per_candidate: 12000
+frontiercs_judge_timeout_seconds: 1800
+frontiercs_judge_poll_seconds: 1
+
+# ACT receives only the current problem and group memory.  Set "best" only for
+# an explicit best-code carry ablation; raw previous diagnostics are never fed.
+frontiercs_act_code_context: none
+frontiercs_enable_thinking: true
+
+# K=1 default: direct task reward.  For K>=2, group_relative is available.
+frontiercs_act_advantage_mode: raw
+frontiercs_task_baseline_artifact: ""
+frontiercs_act_explore_beta: 0.0
+
+# WRITE(M_s) joins training in round s+1 after this reward becomes observable.
+frontiercs_write_reward_mode: delta
+frontiercs_write_advantage_mode: direct
+frontiercs_write_advantage_scale: 1.0

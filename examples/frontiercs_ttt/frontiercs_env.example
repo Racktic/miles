@@ -1,0 +1,53 @@
+# Required benchmark checkout. It contains algorithmic/problems, including the
+# problem statements and hidden test data used by the judge.
+export FRONTIERCS_ROOT=/absolute/path/to/Frontier-CS
+
+# Required model inputs for Miles full-parameter training.
+export FRONTIERCS_HF_CHECKPOINT=/absolute/path/to/Qwen3.5-4B
+export FRONTIERCS_TORCH_DIST=/absolute/path/to/Qwen3.5-4B_torch_dist
+
+# Portable output defaults are derived from FRONTIERCS_ROOT, but large runs will
+# normally point these at cluster scratch or project storage.
+export FRONTIERCS_OUTPUT_ROOT=/absolute/path/to/frontiercs_ttt_traces
+export FRONTIERCS_SAVE_DIR=/absolute/path/to/frontiercs_ttt_checkpoints
+
+# Judge option A: use an already running official or host judge service.
+export FRONTIERCS_JUDGE_URL=http://127.0.0.1:8081
+export FRONTIERCS_AUTO_START_JUDGE=0
+
+# Judge option B: let the launcher start the portable host judge. go-judge,
+# go-judge-init, and node may be installed on PATH; otherwise set explicit paths.
+# export FRONTIERCS_AUTO_START_JUDGE=1
+# export FRONTIERCS_GOJUDGE_BIN=/absolute/path/to/go-judge
+# export FRONTIERCS_GOJUDGE_INIT=/absolute/path/to/go-judge-init
+# export FRONTIERCS_NODE_BIN=/absolute/path/to/node
+# export FRONTIERCS_NODE_MODULES=/absolute/path/to/Frontier-CS/algorithmic/node_modules
+# export FRONTIERCS_JUDGE_STATE_BASE=/absolute/path/to/node-local-temporary-storage
+# If the sandbox toolchain is not installed in the standard system locations:
+# export JUDGE_CXX=/absolute/path/to/g++
+# export JUDGE_PYTHON3=/absolute/path/to/python3
+# export JUDGE_SANDBOX_PATH=/compiler/bin:/system/bin
+
+# Main experiment settings.
+export FRONTIERCS_GROUP_SIZE=3
+export FRONTIERCS_GROUPS_PER_UPDATE=2
+export FRONTIERCS_MEMORY_ROUNDS=4
+export FRONTIERCS_CANDIDATES_PER_PROBLEM=1
+export FRONTIERCS_ACT_MAX_NEW_TOKENS=25600
+export FRONTIERCS_WRITE_MAX_NEW_TOKENS=25600
+export FRONTIERCS_SEQ_LENGTH=32768
+export FRONTIERCS_MAX_TOKENS_PER_GPU=32768
+
+# Hardware topology. FRONTIERCS_NGPU defaults to all visible GPUs and
+# FRONTIERCS_TP defaults to FRONTIERCS_NGPU.
+# export FRONTIERCS_NGPU=8
+# export FRONTIERCS_TP=4
+# For a Ray cluster started by the scheduler wrapper:
+# export FRONTIERCS_START_RAY=0
+# export FRONTIERCS_RAY_ADDRESS=http://ray-head-host:8265
+
+# W&B is optional. Supply the key through the process environment or point to a
+# private env file outside the repository; never commit the key.
+export WANDB_PROJECT=miles-frontier-cs
+# export WANDB_API_KEY=...
+# export FRONTIERCS_WANDB_ENV_FILE=/absolute/path/to/private-wandb.env

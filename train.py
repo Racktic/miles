@@ -126,7 +126,13 @@ async def train(args):
         if should_run_periodic_action(rollout_id, args.eval_interval, num_rollout_per_epoch):
             await rollout_manager.eval.remote(rollout_id)
 
+    # Secondary Ray processes own the rollout and optimizer metric streams.
+    # Flush them before returning to the driver, whose finally block closes the
+    # primary W&B process and marks the shared run complete.
     await rollout_manager.dispose.remote()
+    await actor_model.finish_tracking()
+    if critic_model is not None:
+        await critic_model.finish_tracking()
 
 
 if __name__ == "__main__":

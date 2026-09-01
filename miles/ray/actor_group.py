@@ -144,6 +144,10 @@ class RayTrainGroup:
     async def clear_memory(self):
         await self._broadcast("clear_memory")
 
+    async def finish_tracking(self):
+        """Flush secondary tracking clients before the Ray actors are reaped."""
+        await self._broadcast("finish_tracking")
+
     async def connect(self, critic_group):
         refs = [
             actor.connect_actor_critic.remote(critic)

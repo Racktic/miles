@@ -114,6 +114,12 @@ class TrainRayActor(RayActor):
         clear_memory()
         print_memory("after TrainRayActor.clear_memory")
 
+    def finish_tracking(self):
+        """Flush tracking backends initialized inside this Ray process."""
+        from miles.utils.tracking_utils import finish_tracking
+
+        finish_tracking()
+
     @abc.abstractmethod
     def sleep(self, tags):
         raise NotImplementedError
