@@ -17,20 +17,13 @@ revisions used by the experiment.
 Clone the two published `frontiercs-ttt` branches:
 
 ```bash
-export FRONTIERCS_WORKSPACE=/home/your-user/frontiercs-workspace
-export MILES_REPOSITORY_URL=https://github.com/Racktic/miles.git
-export MILES_REVISION=frontiercs-ttt
-export FRONTIERCS_REPOSITORY_URL=https://github.com/Racktic/Frontier-CS.git
-export FRONTIERCS_REVISION=frontiercs-ttt
+git clone --branch frontiercs-ttt https://github.com/Racktic/miles.git \
+  /home/your-user/miles
+git clone --branch frontiercs-ttt https://github.com/Racktic/Frontier-CS.git \
+  /home/your-user/Frontier-CS
 
-mkdir -p "${FRONTIERCS_WORKSPACE}"
-git clone --branch "${MILES_REVISION}" "${MILES_REPOSITORY_URL}" \
-  "${FRONTIERCS_WORKSPACE}/miles"
-git clone --branch "${FRONTIERCS_REVISION}" "${FRONTIERCS_REPOSITORY_URL}" \
-  "${FRONTIERCS_WORKSPACE}/Frontier-CS"
-
-export MILES_ROOT="${FRONTIERCS_WORKSPACE}/miles"
-export FRONTIERCS_ROOT="${FRONTIERCS_WORKSPACE}/Frontier-CS"
+export MILES_ROOT=/home/your-user/miles
+export FRONTIERCS_ROOT=/home/your-user/Frontier-CS
 ```
 
 For an exact commit rather than a branch, clone the repository normally and
