@@ -88,6 +88,24 @@ PYTHONPATH="${MEGATRON_LM_PATH}" python tools/convert_hf_to_torch_dist.py \
 
 Do not commit model weights to either repository.
 
+For Qwen3.6-27B, use the corresponding Miles model configuration during
+conversion:
+
+```bash
+export FRONTIERCS_MODEL_ROOT=/home/your-user/models
+export MEGATRON_LM_PATH=/home/your-user/Megatron-LM
+
+hf download Qwen/Qwen3.6-27B \
+  --local-dir "${FRONTIERCS_MODEL_ROOT}/Qwen3.6-27B"
+
+cd "${MILES_ROOT}"
+source scripts/models/qwen3.6-27B.sh
+PYTHONPATH="${MEGATRON_LM_PATH}" python tools/convert_hf_to_torch_dist.py \
+  "${MODEL_ARGS[@]}" \
+  --hf-checkpoint "${FRONTIERCS_MODEL_ROOT}/Qwen3.6-27B" \
+  --save "${FRONTIERCS_MODEL_ROOT}/Qwen3.6-27B_torch_dist"
+```
+
 ## 4. Configure the judge
 
 Training communicates with the judge over HTTP. The only value required by the
@@ -173,14 +191,20 @@ Hardware parameters are cluster-specific:
 |---|---|
 | `FRONTIERCS_NGPU` | Number of visible GPUs |
 | `FRONTIERCS_TP` | `FRONTIERCS_NGPU` |
+| `FRONTIERCS_PP` | `1` |
+| `FRONTIERCS_CP` | `1` |
 | `FRONTIERCS_ACTOR_NUM_NODES` | `1` |
 | `FRONTIERCS_ACTOR_GPUS_PER_NODE` | `FRONTIERCS_NGPU` |
-| `FRONTIERCS_ROLLOUT_NUM_GPUS` | `FRONTIERCS_NGPU` |
+| `FRONTIERCS_ROLLOUT_NUM_GPUS` | Total actor GPUs |
 | `FRONTIERCS_ROLLOUT_GPUS_PER_ENGINE` | `1` |
 | `FRONTIERCS_SGLANG_MEM_FRACTION` | `0.5` |
 
-For a scheduler-managed Ray cluster, set `FRONTIERCS_START_RAY=0` and provide
-`FRONTIERCS_RAY_ADDRESS`. Otherwise the launcher starts a single-node Ray head.
+Before submitting training, the launcher waits until Ray contains the requested
+number of nodes and GPUs. An incomplete allocation therefore fails with an
+explicit timeout instead of hanging later while Miles creates its placement
+group. Set `FRONTIERCS_WAIT_FOR_RAY_CLUSTER=0` only when readiness is validated
+externally. By default it also verifies the repositories, data, model inputs,
+and output directories on every eligible GPU node.
 
 W&B is optional. Set `WANDB_PROJECT=miles-frontier-cs` and provide the API key
 through the process environment or `FRONTIERCS_WANDB_ENV_FILE`. Never commit the
@@ -197,10 +221,89 @@ cd "${MILES_ROOT}"
 bash examples/frontiercs_ttt/run_frontiercs_ttt_episode_qwen3.5_4B.sh
 ```
 
+For Qwen3.6-27B, set its two checkpoint paths and use the model-specific
+entrypoint. It defaults to `TP=4`; PP, CP, and the node counts remain explicit
+hardware parameters:
+
+```bash
+export FRONTIERCS_HF_CHECKPOINT=/home/your-user/models/Qwen3.6-27B
+export FRONTIERCS_TORCH_DIST=/home/your-user/models/Qwen3.6-27B_torch_dist
+bash /home/your-user/miles/examples/frontiercs_ttt/run_frontiercs_ttt_episode_qwen3.6_27B.sh
+```
+
 The launcher verifies the group dataset, model directories, visible GPUs, and
 judge health before submitting the Ray job. Slurm directives, container mounts,
 and cluster module commands belong in a small cluster-specific wrapper rather
 than in the shared launcher.
+
+### Multi-node launch
+
+`run_frontiercs_ttt_multinode.sh` is the scheduler-independent multi-node
+entrypoint. Every process uses the same head address. Set the total number of
+nodes and per-node GPUs on every node before starting it:
+
+```bash
+export FRONTIERCS_ACTOR_NUM_NODES=4
+export FRONTIERCS_ACTOR_GPUS_PER_NODE=8
+export FRONTIERCS_NGPU=8
+export FRONTIERCS_TP=8
+export FRONTIERCS_PP=2
+export FRONTIERCS_CP=1
+```
+
+Start the head role on the designated head node:
+
+```bash
+source /home/your-user/frontiercs.env
+bash /home/your-user/miles/examples/frontiercs_ttt/run_frontiercs_ttt_multinode.sh \
+  head 10.0.0.10
+```
+
+The Qwen3.6-27B entrypoint accepts the same role and address, so it can be used
+directly on the head:
+
+```bash
+bash /home/your-user/miles/examples/frontiercs_ttt/run_frontiercs_ttt_episode_qwen3.6_27B.sh \
+  head 10.0.0.10
+```
+
+Start one worker role on each of the other nodes:
+
+```bash
+source /home/your-user/frontiercs.env
+bash /home/your-user/miles/examples/frontiercs_ttt/run_frontiercs_ttt_multinode.sh \
+  worker 10.0.0.10
+```
+
+Use the matching Qwen3.6-27B entrypoint on every worker when training that
+model:
+
+```bash
+bash /home/your-user/miles/examples/frontiercs_ttt/run_frontiercs_ttt_episode_qwen3.6_27B.sh \
+  worker 10.0.0.10
+```
+
+Workers wait for the Ray head and monitor it after joining. The head waits until
+all four nodes advertise eight GPUs each and is the only process that submits
+the training job. When that process finishes or fails, it stops the Ray head;
+workers detect the closed head and clean up their local Ray services. Miles
+receives 32 colocated actor and rollout GPUs. The rollout manager is pinned to
+the Ray head so the Frontier-CS episode state and a head-local judge have a
+single, deterministic owner.
+
+For a Ray cluster that the scheduler has already created, invoke the normal
+launcher with `FRONTIERCS_START_RAY=0`, set the dashboard endpoint in
+`FRONTIERCS_RAY_ADDRESS`, and set the GCS endpoint in
+`FRONTIERCS_RAY_CLUSTER_ADDRESS`. The same resource-readiness check runs before
+job submission.
+
+The launcher also verifies that the samples in one optimizer update are exactly
+divisible across data-parallel ranks. Each default `G=3`, `K=1`, `S=4` episode
+contains 15 trainable samples, so the check is
+`FRONTIERCS_GROUPS_PER_UPDATE * 15` divisible by
+`DP = total_GPUs / (TP * PP * CP)`. It fails before allocating model actors
+rather than letting Miles silently trim complete-episode samples. TP, PP, or
+the number of groups per update can be adjusted to satisfy this invariant.
 
 ## 7. Training semantics
 

@@ -33,6 +33,7 @@ KL_TYPE="${FRONTIERCS_KL_TYPE:-k1}"
 USE_UNBIASED_KL="${FRONTIERCS_USE_UNBIASED_KL:-0}"
 REF_UPDATE_INTERVAL="${FRONTIERCS_REF_UPDATE_INTERVAL:-}"
 RUN_ID="${FRONTIERCS_RUN_ID:-$(date +%Y%m%d-%H%M%S)}"
+MODEL_LABEL="${FRONTIERCS_MODEL_LABEL:-qwen3.5-4B}"
 OUTPUT_ROOT="${FRONTIERCS_OUTPUT_ROOT:-${FRONTIERCS_ROOT}/qwen_eval/results/frontiercs_ttt_rl}"
 JUDGE_PORT="${FRONTIERCS_JUDGE_PORT:-8081}"
 GOJUDGE_PORT="${FRONTIERCS_GOJUDGE_PORT:-5050}"
@@ -53,6 +54,10 @@ if [ "${GROUPS_PER_UPDATE}" -lt 1 ]; then
 fi
 if [ "${GROUP_SIZE}" -lt 1 ]; then
   echo "FRONTIERCS_GROUP_SIZE must be at least 1" >&2
+  exit 2
+fi
+if [ "${MEMORY_ROUNDS}" -lt 1 ] || [ "${CANDIDATES_PER_PROBLEM}" -lt 1 ]; then
+  echo "FRONTIERCS_MEMORY_ROUNDS and FRONTIERCS_CANDIDATES_PER_PROBLEM must be at least 1" >&2
   exit 2
 fi
 case "${KL_MODE}" in
@@ -106,9 +111,27 @@ if [ "${NGPU:-0}" -lt 1 ]; then
   exit 2
 fi
 TP="${FRONTIERCS_TP:-${NGPU}}"
+PP="${FRONTIERCS_PP:-1}"
+CP="${FRONTIERCS_CP:-1}"
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-$(seq -s, 0 $((NGPU-1)))}"
 export PYTHONUNBUFFERED=1
 AUTO_JUDGE_STARTED=0
+RAY_HEAD_STARTED=0
+
+cleanup_frontiercs_services() {
+  if [ "${AUTO_JUDGE_STARTED:-0}" = "1" ]; then
+    python3 "${SCRIPT_DIR}/host_judge.py" stop \
+      --api-port "${JUDGE_PORT}" \
+      --gojudge-port "${GOJUDGE_PORT}" \
+      --cleanup
+  fi
+  if [ "${RAY_HEAD_STARTED:-0}" = "1" ] \
+    && [ "${FRONTIERCS_STOP_RAY_ON_EXIT:-0}" = "1" ]; then
+    ray stop --force >/dev/null 2>&1 || true
+  fi
+}
+trap cleanup_frontiercs_services EXIT
+
 if ! curl -fsS "${JUDGE_URL}/health" >/dev/null && [ "${FRONTIERCS_AUTO_START_JUDGE:-0}" = "1" ]; then
   if [ "${JUDGE_URL}" != "http://127.0.0.1:${JUDGE_PORT}" ]; then
     echo "Automatic judge startup requires a local FRONTIERCS_JUDGE_URL matching FRONTIERCS_JUDGE_PORT" >&2
@@ -119,7 +142,6 @@ if ! curl -fsS "${JUDGE_URL}/health" >/dev/null && [ "${FRONTIERCS_AUTO_START_JU
     --api-port "${JUDGE_PORT}" \
     --gojudge-port "${GOJUDGE_PORT}"
   AUTO_JUDGE_STARTED=1
-  trap 'if [ "${AUTO_JUDGE_STARTED}" = "1" ]; then python3 "${SCRIPT_DIR}/host_judge.py" stop --api-port "${JUDGE_PORT}" --gojudge-port "${GOJUDGE_PORT}" --cleanup; fi' EXIT
 fi
 if ! curl -fsS "${JUDGE_URL}/health" >/dev/null; then
   echo "Frontier-CS judge is not healthy at ${JUDGE_URL}/health" >&2
@@ -145,7 +167,7 @@ if [ -z "${TORCH_DIST}" ] || [ ! -d "${TORCH_DIST}" ]; then
   exit 2
 fi
 SAVE_DIR="${FRONTIERCS_SAVE_DIR:-${OUTPUT_ROOT}/${RUN_ID}/checkpoints}"
-LOG_DIR="${SCRIPT_DIR}/logs/${RUN_ID}"
+LOG_DIR="${FRONTIERCS_LOG_DIR:-${OUTPUT_ROOT}/${RUN_ID}/logs}"
 mkdir -p "${LOG_DIR}" "${OUTPUT_ROOT}/${RUN_ID}" "${SAVE_DIR}"
 
 WANDB_ENV_FILE="${FRONTIERCS_WANDB_ENV_FILE:-}"
@@ -164,7 +186,7 @@ case "${FRONTIERCS_USE_WANDB:-1}" in
       WANDB_ARGS=(
         --use-wandb
         --wandb-project "${WANDB_PROJECT:-miles-frontier-cs}"
-        --wandb-group "${WANDB_GROUP:-frontiercs-qwen3.5-4B-${RUN_ID}}"
+        --wandb-group "${WANDB_GROUP:-frontiercs-${MODEL_LABEL}-${RUN_ID}}"
         --disable-wandb-random-suffix
       )
       if [ -n "${FRONTIERCS_WANDB_RUN_ID:-}" ]; then
@@ -187,6 +209,7 @@ case "${FRONTIERCS_USE_WANDB:-1}" in
 esac
 
 echo "Frontier-CS complete-episode TTT run: ${RUN_ID}"
+echo "model=${MODEL_LABEL} model_config=${MODEL_CONFIG_SCRIPT}"
 echo "groups=${GROUP_COUNT} G=${GROUP_SIZE} groups_per_update=${GROUPS_PER_UPDATE} rounds=${MEMORY_ROUNDS} K=${CANDIDATES_PER_PROBLEM}"
 echo "epochs=${NUM_EPOCHS} optimizer_steps_per_epoch=${UPDATES_PER_EPOCH} total_optimizer_steps=${NUM_UPDATES}"
 echo "kl_mode=${KL_MODE} kl_coef=${KL_COEF} kl_type=${KL_TYPE} unbiased_kl=${USE_UNBIASED_KL} ref_update_interval=${REF_UPDATE_INTERVAL:-frozen}"
@@ -202,20 +225,94 @@ fi
 MASTER_ADDR="${MASTER_ADDR:-127.0.0.1}"
 RAY_DASH_PORT="${RAY_DASH_PORT:-8265}"
 RAY_ADDRESS="${FRONTIERCS_RAY_ADDRESS:-http://127.0.0.1:${RAY_DASH_PORT}}"
-RAY_OBJECT_STORE_MEMORY="${RAY_OBJECT_STORE_MEMORY:-4000000000}"
+RAY_OBJECT_STORE_MEMORY="${RAY_OBJECT_STORE_MEMORY:-}"
 ACTOR_NUM_NODES="${FRONTIERCS_ACTOR_NUM_NODES:-1}"
 ACTOR_GPUS_PER_NODE="${FRONTIERCS_ACTOR_GPUS_PER_NODE:-${NGPU}}"
-ROLLOUT_NUM_GPUS="${FRONTIERCS_ROLLOUT_NUM_GPUS:-${NGPU}}"
+RAY_NODE_GPUS="${FRONTIERCS_RAY_NODE_GPUS:-${ACTOR_GPUS_PER_NODE}}"
+ROLLOUT_NUM_GPUS="${FRONTIERCS_ROLLOUT_NUM_GPUS:-$((ACTOR_NUM_NODES * ACTOR_GPUS_PER_NODE))}"
 ROLLOUT_GPUS_PER_ENGINE="${FRONTIERCS_ROLLOUT_GPUS_PER_ENGINE:-1}"
+if ! [[ "${ACTOR_NUM_NODES}" =~ ^[1-9][0-9]*$ ]] \
+  || ! [[ "${ACTOR_GPUS_PER_NODE}" =~ ^[1-9][0-9]*$ ]]; then
+  echo "FRONTIERCS_ACTOR_NUM_NODES and FRONTIERCS_ACTOR_GPUS_PER_NODE must be positive integers." >&2
+  exit 2
+fi
+if ! [[ "${RAY_NODE_GPUS}" =~ ^[1-9][0-9]*$ ]] || [ "${RAY_NODE_GPUS}" -lt "${ACTOR_GPUS_PER_NODE}" ]; then
+  echo "FRONTIERCS_RAY_NODE_GPUS must be an integer at least as large as FRONTIERCS_ACTOR_GPUS_PER_NODE." >&2
+  exit 2
+fi
+if [ "${RAY_NODE_GPUS}" -gt "${NGPU}" ]; then
+  echo "FRONTIERCS_RAY_NODE_GPUS cannot exceed the ${NGPU} locally visible GPUs." >&2
+  exit 2
+fi
+if ! [[ "${TP}" =~ ^[1-9][0-9]*$ ]] || ! [[ "${PP}" =~ ^[1-9][0-9]*$ ]] \
+  || ! [[ "${CP}" =~ ^[1-9][0-9]*$ ]]; then
+  echo "FRONTIERCS_TP, FRONTIERCS_PP, and FRONTIERCS_CP must be positive integers." >&2
+  exit 2
+fi
+TOTAL_ACTOR_GPUS=$((ACTOR_NUM_NODES * ACTOR_GPUS_PER_NODE))
+MODEL_PARALLEL_SIZE=$((TP * PP * CP))
+if [ $((TOTAL_ACTOR_GPUS % MODEL_PARALLEL_SIZE)) -ne 0 ]; then
+  echo "Total actor GPUs (${TOTAL_ACTOR_GPUS}) must be divisible by TP*PP*CP (${MODEL_PARALLEL_SIZE})." >&2
+  exit 2
+fi
+DP_SIZE=$((TOTAL_ACTOR_GPUS / MODEL_PARALLEL_SIZE))
+SAMPLES_PER_EPISODE=$((GROUP_SIZE * MEMORY_ROUNDS * CANDIDATES_PER_PROBLEM + MEMORY_ROUNDS - 1))
+SAMPLES_PER_UPDATE=$((GROUPS_PER_UPDATE * SAMPLES_PER_EPISODE))
+if [ "${SAMPLES_PER_UPDATE}" -lt "${DP_SIZE}" ] \
+  || [ $((SAMPLES_PER_UPDATE % DP_SIZE)) -ne 0 ]; then
+  echo "One update produces ${SAMPLES_PER_UPDATE} samples, which is not divisible by DP=${DP_SIZE}." >&2
+  echo "Adjust FRONTIERCS_GROUPS_PER_UPDATE or TP/PP/CP so Miles does not trim complete-episode samples." >&2
+  exit 2
+fi
+echo "cluster_nodes=${ACTOR_NUM_NODES} gpus_per_node=${ACTOR_GPUS_PER_NODE} total_gpus=${TOTAL_ACTOR_GPUS} TP=${TP} PP=${PP} CP=${CP} DP=${DP_SIZE}"
+echo "samples_per_episode=${SAMPLES_PER_EPISODE} samples_per_update=${SAMPLES_PER_UPDATE} samples_per_dp_rank=$((SAMPLES_PER_UPDATE / DP_SIZE))"
 if [ "${FRONTIERCS_START_RAY:-1}" = "1" ]; then
-  ray start --head \
-    --node-ip-address "${MASTER_ADDR}" \
-    --num-gpus "${NGPU}" \
-    --disable-usage-stats \
-    --port "${RAY_GCS_PORT:-6379}" \
-    --object-store-memory "${RAY_OBJECT_STORE_MEMORY}" \
-    --dashboard-host=0.0.0.0 \
+  RAY_HEAD_ARGS=(
+    --head
+    --node-ip-address "${MASTER_ADDR}"
+    --num-gpus "${RAY_NODE_GPUS}"
+    --disable-usage-stats
+    --port "${RAY_GCS_PORT:-6379}"
+    --dashboard-host=0.0.0.0
     --dashboard-port "${RAY_DASH_PORT}"
+  )
+  if [ -n "${RAY_OBJECT_STORE_MEMORY}" ]; then
+    RAY_HEAD_ARGS+=(--object-store-memory "${RAY_OBJECT_STORE_MEMORY}")
+  fi
+  ray start "${RAY_HEAD_ARGS[@]}"
+  RAY_HEAD_STARTED=1
+fi
+
+if [ "${FRONTIERCS_WAIT_FOR_RAY_CLUSTER:-1}" = "1" ]; then
+  RAY_CLUSTER_ADDRESS="${FRONTIERCS_RAY_CLUSTER_ADDRESS:-}"
+  if [ -z "${RAY_CLUSTER_ADDRESS}" ]; then
+    if [ "${FRONTIERCS_START_RAY:-1}" = "1" ]; then
+      RAY_CLUSTER_ADDRESS="${MASTER_ADDR}:${RAY_GCS_PORT:-6379}"
+    else
+      RAY_CLUSTER_ADDRESS="auto"
+    fi
+  fi
+  RAY_WAIT_ARGS=(
+    --address "${RAY_CLUSTER_ADDRESS}"
+    --expected-nodes "${ACTOR_NUM_NODES}"
+    --expected-gpus "$((ACTOR_NUM_NODES * ACTOR_GPUS_PER_NODE))"
+    --minimum-gpus-per-node "${ACTOR_GPUS_PER_NODE}"
+    --timeout-seconds "${FRONTIERCS_RAY_WAIT_TIMEOUT_SECONDS:-600}"
+    --poll-seconds "${FRONTIERCS_RAY_WAIT_POLL_SECONDS:-5}"
+  )
+  if [ "${FRONTIERCS_CHECK_RAY_PATHS:-1}" = "1" ]; then
+    for required_path in \
+      "${MILES_DIR}" \
+      "${FRONTIERCS_ROOT}" \
+      "${PROMPT_DATA}" \
+      "${HF_CHECKPOINT}" \
+      "${TORCH_DIST}" \
+      "${SAVE_DIR}" \
+      "${OUTPUT_ROOT}/${RUN_ID}"; do
+      RAY_WAIT_ARGS+=(--required-path "${required_path}")
+    done
+  fi
+  python3 "${SCRIPT_DIR}/wait_for_ray_cluster.py" "${RAY_WAIT_ARGS[@]}"
 fi
 
 RUNTIME_ENV_JSON="{
@@ -290,8 +387,8 @@ ray job submit --address="${RAY_ADDRESS}" \
   --overlap-cpu-optimizer-d2h-h2d \
   --use-precision-aware-optimizer \
   --tensor-model-parallel-size "${TP}" \
-  --pipeline-model-parallel-size 1 \
-  --context-parallel-size 1 \
+  --pipeline-model-parallel-size "${PP}" \
+  --context-parallel-size "${CP}" \
   --expert-model-parallel-size 1 \
   --expert-tensor-parallel-size 1 \
   --sequence-parallel \
@@ -311,9 +408,11 @@ ray job submit --address="${RAY_ADDRESS}" \
   --hidden-dropout 0.0 \
   --attention-softmax-in-fp32 \
   --rollout-num-gpus-per-engine "${ROLLOUT_GPUS_PER_ENGINE}" \
+  --num-gpus-per-node "${ACTOR_GPUS_PER_NODE}" \
   --sglang-mem-fraction-static "${FRONTIERCS_SGLANG_MEM_FRACTION:-0.5}" \
   --actor-num-nodes "${ACTOR_NUM_NODES}" \
   --actor-num-gpus-per-node "${ACTOR_GPUS_PER_NODE}" \
   --rollout-num-gpus "${ROLLOUT_NUM_GPUS}" \
+  --pin-rollout-manager-to-head \
   "${WANDB_ARGS[@]}" \
   --colocate

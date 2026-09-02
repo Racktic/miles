@@ -41,10 +41,25 @@ export FRONTIERCS_MAX_TOKENS_PER_GPU=32768
 # Hardware topology. FRONTIERCS_NGPU defaults to all visible GPUs and
 # FRONTIERCS_TP defaults to FRONTIERCS_NGPU.
 # export FRONTIERCS_NGPU=8
-# export FRONTIERCS_TP=4
-# For a Ray cluster started by the scheduler wrapper:
+# export FRONTIERCS_TP=8
+# export FRONTIERCS_PP=2
+# export FRONTIERCS_CP=1
+# export FRONTIERCS_ACTOR_NUM_NODES=4
+# export FRONTIERCS_ACTOR_GPUS_PER_NODE=8
+# export FRONTIERCS_RAY_NODE_GPUS=8
+# For a Ray cluster already started by the scheduler:
 # export FRONTIERCS_START_RAY=0
 # export FRONTIERCS_RAY_ADDRESS=http://ray-head-host:8265
+# export FRONTIERCS_RAY_CLUSTER_ADDRESS=ray-head-host:6379
+# The multi-node launcher sets the two Ray addresses itself from its head-address
+# argument and waits for all requested nodes and GPUs before submitting training.
+# export FRONTIERCS_RAY_WAIT_TIMEOUT_SECONDS=600
+
+# Qwen3.6-27B uses the same generic Frontier-CS launcher with a different Miles
+# model configuration and checkpoints.
+# export FRONTIERCS_MODEL_CONFIG_SCRIPT=/home/your-user/miles/scripts/models/qwen3.6-27B.sh
+# export FRONTIERCS_HF_CHECKPOINT=/home/your-user/models/Qwen3.6-27B
+# export FRONTIERCS_TORCH_DIST=/home/your-user/models/Qwen3.6-27B_torch_dist
 
 # W&B is optional. Supply the key through the process environment or point to a
 # private env file outside the repository; never commit the key.
