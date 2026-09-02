@@ -62,6 +62,7 @@ def compute_frontiercs_metrics(args: Any, samples: list[Sample]) -> dict[str, fl
 
     by_round: dict[int, list[Sample]] = defaultdict(list)
     by_membership: dict[tuple[str, str], list[Sample]] = defaultdict(list)
+    memory_events: dict[tuple[str, int], dict[str, Any]] = {}
     for sample in act:
         metadata = sample.metadata or {}
         round_index = int(metadata["memory_round"])
@@ -69,6 +70,10 @@ def compute_frontiercs_metrics(args: Any, samples: list[Sample]) -> dict[str, fl
         by_membership[
             (str(metadata.get("group_id") or ""), str(metadata.get("problem_id") or ""))
         ].append(sample)
+        if metadata.get("memory_generated_after_round"):
+            memory_events.setdefault(
+                (str(metadata.get("group_id") or ""), round_index), metadata
+            )
 
     for round_index in range(memory_rounds):
         round_samples = by_round.get(round_index) or []
@@ -116,33 +121,67 @@ def compute_frontiercs_metrics(args: Any, samples: list[Sample]) -> dict[str, fl
     metrics["act/length_stop_frac"] = _mean(
         sample.status == Sample.Status.TRUNCATED for sample in act
     )
-    metrics["write/length_stop_frac"] = _mean(
-        sample.status == Sample.Status.TRUNCATED for sample in write
-    )
+    nonterminal_memory_events = [
+        metadata
+        for metadata in memory_events.values()
+        if not bool(metadata.get("memory_terminal_after_round"))
+    ]
+    if nonterminal_memory_events:
+        metrics["write/length_stop_frac"] = _mean(
+            str(metadata.get("memory_finish_reason_after_round") or "") == "length"
+            for metadata in nonterminal_memory_events
+        )
+    else:
+        metrics["write/length_stop_frac"] = _mean(
+            sample.status == Sample.Status.TRUNCATED for sample in write
+        )
 
     metrics["sample_length/act_mean"] = _mean(
         _response_length(sample) for sample in act
     )
-    metrics["sample_length/write_mean"] = _mean(
-        _response_length(sample) for sample in write
-    )
+    if nonterminal_memory_events:
+        metrics["sample_length/write_mean"] = _mean(
+            float(metadata.get("memory_response_tokens_after_round") or 0.0)
+            for metadata in nonterminal_memory_events
+        )
+    else:
+        metrics["sample_length/write_mean"] = _mean(
+            _response_length(sample) for sample in write
+        )
     metrics["diagnostics/nonempty_frac"] = _mean(
         bool((sample.metadata or {}).get("has_diagnostics")) for sample in act
     )
-    metrics["memory/changed_frac"] = _mean(
-        bool((sample.metadata or {}).get("memory_changed")) for sample in write
-    )
-    metrics["memory/empty_frac"] = _mean(
-        bool((sample.metadata or {}).get("memory_empty")) for sample in write
-    )
+    if nonterminal_memory_events:
+        metrics["memory/changed_frac"] = _mean(
+            bool(metadata.get("memory_changed_after_round"))
+            for metadata in nonterminal_memory_events
+        )
+        metrics["memory/empty_frac"] = _mean(
+            bool(metadata.get("memory_empty_after_round"))
+            for metadata in nonterminal_memory_events
+        )
+    else:
+        metrics["memory/changed_frac"] = _mean(
+            bool((sample.metadata or {}).get("memory_changed")) for sample in write
+        )
+        metrics["memory/empty_frac"] = _mean(
+            bool((sample.metadata or {}).get("memory_empty")) for sample in write
+        )
 
     for produced_round in range(memory_rounds - 1):
-        memory_lengths = [
-            float((sample.metadata or {}).get("memory_tokens") or 0.0)
-            for sample in write
-            if int((sample.metadata or {}).get("produced_round") or 0)
-            == produced_round
-        ]
+        if nonterminal_memory_events:
+            memory_lengths = [
+                float(metadata.get("memory_tokens_after_round") or 0.0)
+                for metadata in nonterminal_memory_events
+                if int(metadata.get("memory_round") or 0) == produced_round
+            ]
+        else:
+            memory_lengths = [
+                float((sample.metadata or {}).get("memory_tokens") or 0.0)
+                for sample in write
+                if int((sample.metadata or {}).get("produced_round") or 0)
+                == produced_round
+            ]
         if not memory_lengths:
             raise ValueError(
                 f"Frontier-CS metrics received no WRITE memory for round {produced_round}"

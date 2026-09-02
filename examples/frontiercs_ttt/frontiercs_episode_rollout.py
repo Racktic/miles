@@ -30,6 +30,7 @@ from .frontiercs_rollout import (
     _atomic_text,
     _bool_setting,
     _candidate,
+    _candidate_sample_path,
     _encode_prompt,
     _env_or_arg,
     _group_root,
@@ -186,6 +187,13 @@ def _episode_settings(input: GenerateFnInput) -> dict[str, Any]:
     if act_code_context not in {"none", "best"}:
         raise ValueError("frontiercs_act_code_context must be none|best")
 
+    train_write = _bool_setting(
+        args,
+        "FRONTIERCS_TRAIN_WRITE",
+        "frontiercs_train_write",
+        True,
+    )
+
     episode_index = int(input.sample.index or 0)
     trace_group_id = _episode_trace_group_id(group_id, episode_index)
     return {
@@ -197,6 +205,7 @@ def _episode_settings(input: GenerateFnInput) -> dict[str, Any]:
         "candidates_per_problem": candidates_per_problem,
         "memory_rounds": memory_rounds,
         "act_code_context": act_code_context,
+        "train_write": train_write,
     }
 
 
@@ -210,6 +219,7 @@ async def _generate_episode_locked(input: GenerateFnInput) -> GenerateFnOutput:
     candidates_per_problem = settings["candidates_per_problem"]
     memory_rounds = settings["memory_rounds"]
     act_code_context = settings["act_code_context"]
+    train_write = settings["train_write"]
 
     run_root = _run_root(args)
     episode_root = _group_root(run_root, trace_group_id)
@@ -272,6 +282,7 @@ async def _generate_episode_locked(input: GenerateFnInput) -> GenerateFnOutput:
             "write_max_new_tokens": write_max_new_tokens,
             "diagnostics_chars_per_candidate": diagnostics_chars,
             "enable_thinking": thinking,
+            "train_write": train_write,
         },
     )
 
@@ -440,36 +451,37 @@ async def _generate_episode_locked(input: GenerateFnInput) -> GenerateFnOutput:
             memory_changed = memory_out.strip() != memory_in.strip()
             memory_empty = not bool(memory_out.strip())
             memory_tokens = _plain_token_count(input.state.tokenizer, memory_out)
-            packed_write = _pack_sample(
-                seed=input.sample,
-                prompt_label=(
-                    f"Frontier-CS WRITE {trace_group_id}/r{round_index}"
-                ),
-                prompt_ids=write_prompt_ids,
-                response_text=write_text,
-                response_ids=write_ids,
-                response_logprobs=write_logprobs,
-                finish=write_finish,
-                metadata={
-                    "phase": "write",
-                    "training_unit": "complete_group_episode",
-                    "group_id": trace_group_id,
-                    "group_template_id": group_id,
-                    "episode_index": episode_index,
-                    "produced_round": round_index,
-                    "memory_round": round_index,
-                    "memory_tokens": memory_tokens,
-                    "memory_changed": memory_changed,
-                    "memory_empty": memory_empty,
-                },
-                sample_index=(
-                    int(input.sample.index or 0) * 100000
-                    + round_index * 1000
-                    + 999
-                ),
-                engine_metadata=write_engine_metadata,
-            )
-            next_pending = packed_write.to_dict()
+            if train_write:
+                packed_write = _pack_sample(
+                    seed=input.sample,
+                    prompt_label=(
+                        f"Frontier-CS WRITE {trace_group_id}/r{round_index}"
+                    ),
+                    prompt_ids=write_prompt_ids,
+                    response_text=write_text,
+                    response_ids=write_ids,
+                    response_logprobs=write_logprobs,
+                    finish=write_finish,
+                    metadata={
+                        "phase": "write",
+                        "training_unit": "complete_group_episode",
+                        "group_id": trace_group_id,
+                        "group_template_id": group_id,
+                        "episode_index": episode_index,
+                        "produced_round": round_index,
+                        "memory_round": round_index,
+                        "memory_tokens": memory_tokens,
+                        "memory_changed": memory_changed,
+                        "memory_empty": memory_empty,
+                    },
+                    sample_index=(
+                        int(input.sample.index or 0) * 100000
+                        + round_index * 1000
+                        + 999
+                    ),
+                    engine_metadata=write_engine_metadata,
+                )
+                next_pending = packed_write.to_dict()
             trace.save_write(
                 trace_group_id,
                 round_index,
@@ -484,10 +496,38 @@ async def _generate_episode_locked(input: GenerateFnInput) -> GenerateFnOutput:
             )
             write_summary = {
                 "generated": True,
-                "reward_available_after_round": round_index + 1,
+                "training_sample": train_write,
+                "reward_available_after_round": (
+                    round_index + 1 if train_write else None
+                ),
                 "response_tokens": len(write_ids),
                 "finish_reason": write_finish,
             }
+            memory_generation_metadata = {
+                "memory_generated_after_round": True,
+                "memory_terminal_after_round": False,
+                "memory_tokens_after_round": memory_tokens,
+                "memory_changed_after_round": memory_changed,
+                "memory_empty_after_round": memory_empty,
+                "memory_response_tokens_after_round": len(write_ids),
+                "memory_finish_reason_after_round": write_finish,
+            }
+            for sample in act_samples:
+                sample.metadata = {
+                    **(sample.metadata or {}),
+                    **memory_generation_metadata,
+                }
+                metadata = sample.metadata or {}
+                _atomic_json(
+                    _candidate_sample_path(
+                        trace,
+                        trace_group_id,
+                        round_index,
+                        str(metadata["problem_id"]),
+                        int(metadata["candidate_index"]),
+                    ),
+                    sample.to_dict(),
+                )
         else:
             _atomic_text(round_root / "memory_out.md", memory_out)
             write_summary = {
@@ -534,8 +574,7 @@ async def _generate_episode_locked(input: GenerateFnInput) -> GenerateFnOutput:
         raise RuntimeError("complete episode ended with an uncredited WRITE sample")
     expected_samples = (
         memory_rounds * len(problem_ids) * candidates_per_problem
-        + memory_rounds
-        - 1
+        + (memory_rounds - 1 if train_write else 0)
     )
     if len(train_samples) != expected_samples:
         raise RuntimeError(
@@ -555,7 +594,8 @@ async def _generate_episode_locked(input: GenerateFnInput) -> GenerateFnOutput:
         "act_sample_count": memory_rounds
         * len(problem_ids)
         * candidates_per_problem,
-        "write_sample_count": memory_rounds - 1,
+        "writer_training_enabled": train_write,
+        "write_sample_count": memory_rounds - 1 if train_write else 0,
         "train_samples": [sample.to_dict() for sample in train_samples],
     }
     _atomic_json(commit_path, episode_value)

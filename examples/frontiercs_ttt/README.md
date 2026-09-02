@@ -173,6 +173,7 @@ The current full experiment settings are:
 | `FRONTIERCS_GROUPS_PER_UPDATE` | `2` | Complete group episodes collected before one optimizer step |
 | `FRONTIERCS_MEMORY_ROUNDS` | `4` | Number of solve/evaluate rounds in each episode |
 | `FRONTIERCS_CANDIDATES_PER_PROBLEM` | `1` | Independent candidates per problem per round |
+| `FRONTIERCS_TRAIN_WRITE` | `1` | Set to `0` to generate/use memory but exclude WRITE responses from optimization |
 | `FRONTIERCS_ACT_MAX_NEW_TOKENS` | `25600` | Maximum problem-solving response length |
 | `FRONTIERCS_WRITE_MAX_NEW_TOKENS` | `25600` | Maximum memory response length |
 | `FRONTIERCS_SEQ_LENGTH` | `32768` | Maximum trainable prompt-plus-response sequence |
@@ -322,6 +323,11 @@ frozen while one group passes through all memory rounds:
 With `G=3`, `K=1`, `S=4`, one episode contains 12 problem-solving samples and 3
 memory samples. With two episodes per update, an optimizer step receives 30
 samples.
+
+For a solution-only optimization ablation, set `FRONTIERCS_TRAIN_WRITE=0`. The
+pipeline still generates the same nonterminal memories and supplies them to
+later rounds; it simply returns no WRITE samples to Miles. With the same
+`G=3`, `K=1`, `S=4`, each episode then contains 12 trainable samples.
 
 Problem-solving advantages use `temporal_problem_relative`: the `S*K` rewards
 for the same problem within an episode are standardized by their mean and sample

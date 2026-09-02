@@ -195,3 +195,37 @@ def test_logger_emits_one_numeric_row_and_suppresses_default_sample_metrics(monk
     assert EXPECTED_KEYS.issubset(metrics)
     assert all(isinstance(value, (int, float)) for value in metrics.values())
     assert not any("response" in key or "memory_text" in key or "code" in key for key in metrics)
+
+
+def test_act_only_metrics_keep_memory_generation_observable():
+    samples = [
+        sample
+        for sample in _episode_samples()
+        if (sample.metadata or {}).get("phase") == "act"
+    ]
+    for sample in samples:
+        metadata = sample.metadata or {}
+        round_index = int(metadata["memory_round"])
+        metadata.update(
+            {
+                "memory_generated_after_round": round_index < 3,
+                "memory_terminal_after_round": False,
+                "memory_tokens_after_round": 100 + round_index,
+                "memory_changed_after_round": True,
+                "memory_empty_after_round": False,
+                "memory_response_tokens_after_round": 20 + round_index,
+                "memory_finish_reason_after_round": "stop",
+            }
+        )
+        sample.metadata = metadata
+
+    metrics = frontiercs_metrics.compute_frontiercs_metrics(_args(), samples)
+
+    assert metrics["memory/changed_frac"] == 1.0
+    assert metrics["memory/empty_frac"] == 0.0
+    assert metrics["memory_length/after_r0_mean"] == 100.0
+    assert metrics["memory_length/after_r1_mean"] == 101.0
+    assert metrics["memory_length/after_r2_mean"] == 102.0
+    assert metrics["sample_length/write_mean"] == 21.0
+    assert metrics["training_signal/write_reward_mean"] == 0.0
+    assert metrics["training_signal/write_advantage_abs_mean"] == 0.0

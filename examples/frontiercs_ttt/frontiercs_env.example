@@ -33,6 +33,9 @@ export FRONTIERCS_GROUP_SIZE=3
 export FRONTIERCS_GROUPS_PER_UPDATE=2
 export FRONTIERCS_MEMORY_ROUNDS=4
 export FRONTIERCS_CANDIDATES_PER_PROBLEM=1
+# Set to 0 for ACT-only optimization. Memory is still generated, traced, and
+# supplied to later rounds; only WRITE responses are excluded from training.
+export FRONTIERCS_TRAIN_WRITE=1
 export FRONTIERCS_ACT_MAX_NEW_TOKENS=25600
 export FRONTIERCS_WRITE_MAX_NEW_TOKENS=25600
 export FRONTIERCS_SEQ_LENGTH=32768

@@ -23,7 +23,7 @@ class FakeTokenizer:
         return {"input_ids": [1] * max(1, (len(text) + 7) // 8)}
 
 
-def _input(tmp_path):
+def _input(tmp_path, *, train_write=True):
     args = SimpleNamespace(
         n_samples_per_prompt=1,
         frontiercs_output_root=str(tmp_path),
@@ -41,6 +41,7 @@ def _input(tmp_path):
         frontiercs_writer_max_prompt_chars=120000,
         frontiercs_enable_thinking=True,
         frontiercs_write_reward_mode="delta",
+        frontiercs_train_write=train_write,
         seq_length=32768,
         rollout_seed=7,
         sglang_router_ip="127.0.0.1",
@@ -173,3 +174,67 @@ def test_clean_memory_never_falls_back_to_previous_state():
     assert clean_memory("```text\n\n```") == ""
     assert clean_memory("```bytes\nnew memory\n```") == "new memory"
     assert clean_memory("new memory") == "new memory"
+
+
+def test_act_only_mode_generates_and_uses_memory_without_training_write(
+    tmp_path, monkeypatch
+):
+    asyncio.run(_exercise_act_only_mode(tmp_path, monkeypatch))
+
+
+async def _exercise_act_only_mode(tmp_path, monkeypatch):
+    infer_phases = []
+
+    async def fake_infer(url, prompt_ids, params):
+        is_write = int(params["max_new_tokens"]) == 50
+        infer_phases.append("write" if is_write else "act")
+        if is_write:
+            text = "<think>writer</think>### Cross-Problem Knowledge\n- retained memory"
+        else:
+            text = "<think>solver</think>```cpp\nint main(){return 0;}\n```"
+        return text, [10, 11, 12], [-0.1, -0.1, -0.1], "stop", {
+            "weight_version": "frozen-v0"
+        }
+
+    async def fake_evaluate(self, problem_id, code):
+        return JudgeFeedback(status="done", score=25.0, diagnostics="observed")
+
+    monkeypatch.setattr(round_rollout, "_infer", fake_infer)
+    monkeypatch.setattr(episode, "_infer", fake_infer)
+    monkeypatch.setattr(
+        episode.FrontierAlgorithmJudge, "evaluate", fake_evaluate
+    )
+
+    result = await episode.generate_episode(_input(tmp_path, train_write=False))
+    assert len(result.samples) == 12
+    assert {sample.metadata["phase"] for sample in result.samples} == {"act"}
+    assert infer_phases.count("act") == 12
+    assert infer_phases.count("write") == 3
+    assert all(
+        sample.metadata["memory_generated_after_round"]
+        for sample in result.samples
+        if sample.metadata["memory_round"] < 3
+    )
+
+    episode_root = (
+        tmp_path
+        / "episode-unit"
+        / "groups"
+        / "color_sat_episode.episode-00000007"
+    )
+    round_one_prompt = (
+        episode_root
+        / "round_001"
+        / "problems"
+        / "174"
+        / "candidate_00"
+        / "act_prompt.txt"
+    ).read_text()
+    assert "retained memory" in round_one_prompt
+    round_zero = json.loads((episode_root / "round_000" / "round.json").read_text())
+    assert round_zero["write"]["generated"] is True
+    assert round_zero["write"]["training_sample"] is False
+    committed = json.loads((episode_root / "episode.json").read_text())
+    assert committed["writer_training_enabled"] is False
+    assert committed["act_sample_count"] == 12
+    assert committed["write_sample_count"] == 0

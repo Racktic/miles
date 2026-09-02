@@ -21,6 +21,9 @@ frontiercs_judge_poll_seconds: 1
 # pass through the group memory.
 frontiercs_act_code_context: none
 frontiercs_enable_thinking: true
+# Set false to keep generating/using memory while excluding all WRITE outputs
+# from the optimizer batch. ACT-only training still traces every memory update.
+frontiercs_train_write: true
 
 # K=1 does not require GRPO-style sibling normalization.  ``task_baseline``
 # can be enabled once the per-problem baseline artifact is prepared.
