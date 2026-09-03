@@ -22,11 +22,36 @@ def _mean(values: list[float]) -> float:
     return sum(values) / len(values) if values else 0.0
 
 
+def sample_std(values: list[float]) -> float:
+    """Sample standard deviation used by Frontier-CS GRPO normalization."""
+    if len(values) < 2:
+        return 0.0
+    center = _mean(values)
+    variance = sum((value - center) ** 2 for value in values) / (len(values) - 1)
+    return variance**0.5
+
+
 def _env_or_arg(args: Any, env: str, arg: str, default: Any) -> Any:
     value = os.environ.get(env)
     if value not in (None, ""):
         return value
     return getattr(args, arg, default)
+
+
+def explore_beta(args: Any) -> float:
+    """Return the ACT exploration-advantage coefficient."""
+    value = float(
+        _env_or_arg(
+            args,
+            "FRONTIERCS_ACT_EXPLORE_BETA",
+            "frontiercs_act_explore_beta",
+            0.0,
+        )
+        or 0.0
+    )
+    if value < 0.0:
+        raise ValueError("frontiercs_act_explore_beta must be non-negative")
+    return value
 
 
 def _normalize_score(value: Any) -> float:
@@ -65,9 +90,88 @@ def _standardized(values: list[float], *, use_std: bool) -> list[float]:
     if not use_std or len(values) == 1:
         return centered
     # Match Miles' default ``torch.std`` GRPO normalization (correction=1).
-    variance = sum(value * value for value in centered) / (len(centered) - 1)
-    denominator = variance**0.5 + 1e-6
+    denominator = sample_std(values) + 1e-6
     return [value / denominator for value in centered]
+
+
+def exploration_score_groups(
+    args: Any, samples: list[Any]
+) -> tuple[
+    dict[tuple[str, str], tuple[list[int], list[float]]],
+    list[tuple[tuple[str, str], int, int]],
+    int,
+]:
+    """Build complete exploration groups keyed by episode and problem.
+
+    One group contains exactly the ``S*K`` ACT candidates for one problem in
+    one frozen-policy episode. The episode-specific ``group_id`` prevents a
+    repeated problem from being mixed across dataset visits, while
+    ``problem_id`` prevents different problems in one memory group from being
+    mixed together.
+    """
+    memory_rounds = int(
+        _env_or_arg(
+            args,
+            "FRONTIERCS_MEMORY_ROUNDS",
+            "frontiercs_memory_rounds",
+            4,
+        )
+    )
+    candidates_per_problem = int(
+        _env_or_arg(
+            args,
+            "FRONTIERCS_CANDIDATES_PER_PROBLEM",
+            "frontiercs_candidates_per_problem",
+            1,
+        )
+    )
+    expected = memory_rounds * candidates_per_problem
+    expected_members = {
+        (round_index, candidate_index)
+        for round_index in range(memory_rounds)
+        for candidate_index in range(candidates_per_problem)
+    }
+    grouped: dict[tuple[str, str], list[int]] = defaultdict(list)
+    for index, sample in enumerate(samples):
+        metadata = sample.metadata or {}
+        if str(metadata.get("phase") or "act") == "write":
+            continue
+        group_id = str(metadata.get("group_id") or "")
+        problem_id = str(metadata.get("problem_id") or "")
+        if not group_id or not problem_id:
+            raise ValueError(
+                "exploration normalization requires ACT group_id and problem_id"
+            )
+        grouped[(group_id, problem_id)].append(index)
+
+    complete: dict[tuple[str, str], tuple[list[int], list[float]]] = {}
+    incomplete: list[tuple[tuple[str, str], int, int]] = []
+    for key, indices in grouped.items():
+        scored_indices = [
+            index
+            for index in indices
+            if (samples[index].metadata or {}).get("explore_score") is not None
+        ]
+        members = {
+            (
+                int((samples[index].metadata or {}).get("memory_round", -1)),
+                int((samples[index].metadata or {}).get("candidate_index", 0)),
+            )
+            for index in indices
+        }
+        if (
+            len(indices) != expected
+            or len(scored_indices) != expected
+            or members != expected_members
+        ):
+            incomplete.append((key, len(scored_indices), len(indices)))
+            continue
+        values = [
+            float((samples[index].metadata or {})["explore_score"])
+            for index in scored_indices
+        ]
+        complete[key] = (scored_indices, values)
+    return complete, incomplete, expected
 
 
 def reward_post_process(args: Any, samples: list[Any]) -> tuple[list[float], list[float]]:
@@ -226,38 +330,27 @@ def reward_post_process(args: Any, samples: list[Any]) -> tuple[list[float], lis
     for index in write_indices:
         advantages[index] *= write_scale
 
-    explore_beta = float(
-        _env_or_arg(
-            args,
-            "FRONTIERCS_ACT_EXPLORE_BETA",
-            "frontiercs_act_explore_beta",
-            0.0,
-        )
-        or 0.0
-    )
-    if explore_beta:
-        explore_groups: dict[tuple[Any, ...], list[int]] = defaultdict(list)
-        for index in act_indices:
-            metadata = samples[index].metadata or {}
-            if metadata.get("explore_score") is None:
-                continue
-            key = (
-                metadata.get("group_id"),
-                metadata.get("memory_round"),
-                metadata.get("problem_id"),
+    beta = explore_beta(args)
+    if beta:
+        # A memory delta is produced by one complete group round, so every ACT
+        # candidate in that round receives the same raw exploration score. The
+        # relative comparison is deliberately temporal: for each problem in
+        # one episode, normalize its S*K candidates across rounds. Never mix
+        # different problem groups/episodes merely to create siblings.
+        explore_groups, incomplete, expected = exploration_score_groups(args, samples)
+        for scored_indices, values in explore_groups.values():
+            shaped = _standardized(values, use_std=use_std)
+            for index, value in zip(scored_indices, shaped, strict=True):
+                advantages[index] += beta * value
+        if incomplete:
+            preview = ", ".join(
+                f"{key!r}: scored={scored}/{total}"
+                for key, scored, total in incomplete[:5]
             )
-            explore_groups[key].append(index)
-        for indices in explore_groups.values():
-            values = [
-                float((samples[index].metadata or {}).get("explore_score"))
-                for index in indices
-            ]
-            shaped = (
-                _standardized(values, use_std=use_std)
-                if len(indices) > 1
-                else values
+            print(
+                "[frontiercs_advantage] WARNING skipped incomplete temporal "
+                f"exploration groups (expected S*K={expected}): {preview}",
+                flush=True,
             )
-            for index, value in zip(indices, shaped, strict=True):
-                advantages[index] += explore_beta * value
 
     return raw_rewards, advantages

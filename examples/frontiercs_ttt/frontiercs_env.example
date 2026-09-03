@@ -41,6 +41,18 @@ export FRONTIERCS_WRITE_MAX_NEW_TOKENS=25600
 export FRONTIERCS_SEQ_LENGTH=32768
 export FRONTIERCS_MAX_TOKENS_PER_GPU=32768
 
+# Optional ACT exploration shaping. A positive beta generates one memory after
+# every ACT round, including a terminal memory after the final round. An
+# external LLM sees only each previous/updated memory pair and assigns four
+# 0/1/2 scores. Use a dedicated key when possible; OPENAI_API_KEY is accepted
+# as a fallback by the launcher.
+export FRONTIERCS_ACT_EXPLORE_BETA=0
+# export FRONTIERCS_EXPLORE_JUDGE_API_KEY=...
+export FRONTIERCS_EXPLORE_JUDGE_API_BASE=https://api.openai.com/v1
+export FRONTIERCS_EXPLORE_JUDGE_MODEL=gpt-5-mini
+export FRONTIERCS_EXPLORE_JUDGE_TIMEOUT=60
+export FRONTIERCS_EXPLORE_JUDGE_CONCURRENCY=64
+
 # Hardware topology. FRONTIERCS_NGPU defaults to all visible GPUs and
 # FRONTIERCS_TP defaults to FRONTIERCS_NGPU.
 # export FRONTIERCS_NGPU=8

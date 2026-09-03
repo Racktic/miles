@@ -10,6 +10,10 @@ from miles.rollout.base_types import GenerateFnInput
 from miles.utils.types import Sample
 
 from examples.frontiercs_ttt import frontiercs_episode_rollout as episode
+from examples.frontiercs_ttt.frontiercs_exploration_judge import (
+    JUDGE_PROMPT_HASH,
+    JUDGE_VERSION,
+)
 from qwen_eval.frontiercs_ttt.prompts import clean_memory
 from examples.frontiercs_ttt import frontiercs_rollout as round_rollout
 from qwen_eval.frontiercs_ttt.types import JudgeFeedback
@@ -23,7 +27,7 @@ class FakeTokenizer:
         return {"input_ids": [1] * max(1, (len(text) + 7) // 8)}
 
 
-def _input(tmp_path, *, train_write=True):
+def _input(tmp_path, *, explore_beta=0.0, train_write=True):
     args = SimpleNamespace(
         n_samples_per_prompt=1,
         frontiercs_output_root=str(tmp_path),
@@ -42,6 +46,7 @@ def _input(tmp_path, *, train_write=True):
         frontiercs_enable_thinking=True,
         frontiercs_write_reward_mode="delta",
         frontiercs_train_write=train_write,
+        frontiercs_act_explore_beta=explore_beta,
         seq_length=32768,
         rollout_seed=7,
         sglang_router_ip="127.0.0.1",
@@ -238,3 +243,126 @@ async def _exercise_act_only_mode(tmp_path, monkeypatch):
     assert committed["writer_training_enabled"] is False
     assert committed["act_sample_count"] == 12
     assert committed["write_sample_count"] == 0
+
+
+def test_terminal_memory_scores_final_act_but_is_not_a_training_sample(
+    tmp_path, monkeypatch
+):
+    asyncio.run(_exercise_terminal_memory(tmp_path, monkeypatch))
+
+
+async def _exercise_terminal_memory(tmp_path, monkeypatch):
+    infer_calls = []
+    memory_pairs = []
+
+    async def fake_infer(url, prompt_ids, params):
+        seed = int(params["sampling_seed"])
+        local_seed = seed - 7 - 7 * 10_000_000
+        round_index = local_seed // 100_000
+        is_write = int(params["max_new_tokens"]) == 50
+        infer_calls.append(("write" if is_write else "act", round_index))
+        if is_write:
+            text = (
+                f"<think>PRIVATE_WRITE_{round_index}</think>"
+                f"### Cross-Problem Knowledge\n- memory-from-round-{round_index}"
+            )
+        else:
+            text = (
+                f"<think>PRIVATE_ACT_{round_index}</think>"
+                "```cpp\n"
+                f"// round={round_index}\n"
+                "int main(){return 0;}\n"
+                "```"
+            )
+        token_ids = [10, 11, 12]
+        return text, token_ids, [-0.1] * len(token_ids), "stop", {
+            "weight_version": "frozen-v0"
+        }
+
+    async def fake_evaluate(self, problem_id, code):
+        return JudgeFeedback(status="done", score=25.0, diagnostics="observed")
+
+    async def fake_judge_memory_delta(previous_memory, updated_memory):
+        memory_pairs.append((previous_memory, updated_memory))
+        round_index = int(updated_memory.rsplit("-", 1)[1])
+        return {
+            "new_discoveries": min(2, round_index),
+            "error_correction": 0,
+            "actionable_knowledge": 1,
+            "high_level_abstraction": 1,
+            "explore_score": [0.25, 0.375, 0.5, 0.75][round_index],
+            "brief_reason": f"round {round_index}",
+        }
+
+    monkeypatch.setattr(round_rollout, "_infer", fake_infer)
+    monkeypatch.setattr(episode, "_infer", fake_infer)
+    monkeypatch.setattr(
+        episode.FrontierAlgorithmJudge, "evaluate", fake_evaluate
+    )
+    monkeypatch.setattr(episode, "judge_memory_delta", fake_judge_memory_delta)
+
+    result = await episode.generate_episode(_input(tmp_path, explore_beta=0.3))
+    assert len(result.samples) == 15
+    act_samples = [
+        sample for sample in result.samples if sample.metadata["phase"] == "act"
+    ]
+    write_samples = [
+        sample for sample in result.samples if sample.metadata["phase"] == "write"
+    ]
+    assert len(act_samples) == 12
+    assert len(write_samples) == 3
+    assert {sample.metadata["produced_round"] for sample in write_samples} == {
+        0,
+        1,
+        2,
+    }
+    expected_scores = {0: 0.25, 1: 0.375, 2: 0.5, 3: 0.75}
+    assert all(
+        sample.metadata["explore_score"]
+        == expected_scores[sample.metadata["memory_round"]]
+        for sample in act_samples
+    )
+    assert len(memory_pairs) == 4
+    assert sum(kind == "write" for kind, _ in infer_calls) == 4
+
+    episode_root = (
+        tmp_path
+        / "episode-unit"
+        / "groups"
+        / "color_sat_episode.episode-00000007"
+    )
+    terminal_round = json.loads(
+        (episode_root / "round_003" / "round.json").read_text()
+    )
+    assert terminal_round["write"]["generated"] is True
+    assert terminal_round["write"]["terminal"] is True
+    assert terminal_round["write"]["training_sample"] is False
+    assert terminal_round["exploration"]["explore_score"] == 0.75
+    assert "memory-from-round-3" in (
+        episode_root / "round_003" / "memory_out.md"
+    ).read_text()
+    committed = json.loads((episode_root / "episode.json").read_text())
+    assert committed["write_sample_count"] == 3
+    assert committed["terminal_memory_generated"] is True
+    assert "memory-from-round-3" in committed["terminal_memory"]
+    manifest = json.loads((episode_root / "episode_manifest.json").read_text())
+    assert manifest["semantics"]["exploration_judge_version"] == JUDGE_VERSION
+    assert (
+        manifest["semantics"]["exploration_judge_prompt_hash"]
+        == JUDGE_PROMPT_HASH
+    )
+    for round_index in range(4):
+        persisted_reward = json.loads(
+            (
+                episode_root
+                / f"round_{round_index:03d}"
+                / "exploration_reward.json"
+            ).read_text()
+        )
+        assert persisted_reward["judge_version"] == JUDGE_VERSION
+        assert persisted_reward["judge_prompt_hash"] == JUDGE_PROMPT_HASH
+
+    calls_before_replay = (len(infer_calls), len(memory_pairs))
+    replay = await episode.generate_episode(_input(tmp_path, explore_beta=0.3))
+    assert len(replay.samples) == 15
+    assert (len(infer_calls), len(memory_pairs)) == calls_before_replay

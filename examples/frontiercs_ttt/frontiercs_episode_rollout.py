@@ -3,7 +3,9 @@
 One Miles generation input is one complete problem-group episode.  The model
 weights stay frozen while all ``S`` memory rounds are sampled.  The returned
 training unit contains every ACT sample and the ``S - 1`` WRITE samples whose
-rewards become observable in the following round.  Miles updates the actor only
+rewards become observable in the following round.  When ACT exploration
+shaping is enabled, a final untrained WRITE is generated after round ``S - 1``
+so every ACT round has a memory delta to judge.  Miles updates the actor only
 after a configurable batch of complete group episodes has returned.
 
 The older ``frontiercs_rollout.generate`` entry point remains available for the
@@ -24,6 +26,13 @@ from qwen_eval.frontiercs_ttt.prompts import build_write_prompt, clean_memory
 from qwen_eval.frontiercs_ttt.trace import TraceStore
 from qwen_eval.frontiercs_ttt.types import ModelReply
 
+from .frontiercs_advantage import explore_beta
+from .frontiercs_exploration_judge import (
+    EXPLORE_DIMS,
+    JUDGE_PROMPT_HASH,
+    JUDGE_VERSION,
+    judge_memory_delta,
+)
 from .frontiercs_rollout import (
     _SAFE_ID,
     _atomic_json,
@@ -48,6 +57,40 @@ from .frontiercs_rollout import (
 
 
 _EPISODE_LOCKS: dict[str, asyncio.Lock] = {}
+
+
+async def _load_or_judge_memory_delta(
+    round_root: Path,
+    previous_memory: str,
+    updated_memory: str,
+) -> dict[str, Any] | None:
+    """Judge one memory pair once and persist the result for exact replay."""
+    path = round_root / "exploration_reward.json"
+    existing = _load_json(path)
+    if existing is not None:
+        if (
+            existing.get("judge_version") != JUDGE_VERSION
+            or existing.get("judge_prompt_hash") != JUDGE_PROMPT_HASH
+        ):
+            raise ValueError(
+                f"exploration judge prompt changed at {path}; use a new run ID"
+            )
+        result = existing.get("result")
+        return dict(result) if isinstance(result, dict) else None
+
+    result = await judge_memory_delta(previous_memory, updated_memory)
+    _atomic_json(
+        path,
+        {
+            "schema_version": 2,
+            "semantic_inputs": ["previous_memory", "updated_memory"],
+            "judge_version": JUDGE_VERSION,
+            "judge_prompt_hash": JUDGE_PROMPT_HASH,
+            "status": "scored" if result is not None else "unavailable",
+            "result": result,
+        },
+    )
+    return result
 
 
 def _plain_token_count(tokenizer: Any, text: str) -> int:
@@ -87,6 +130,7 @@ def _initial_episode_state(
         "previous_group_score": None,
         "pending_write_sample": None,
         "best_candidates": {},
+        "exploration_by_round": {},
         "train_samples": [],
     }
 
@@ -265,6 +309,7 @@ async def _generate_episode_locked(input: GenerateFnInput) -> GenerateFnOutput:
     ).strip().lower()
     if reward_mode not in {"delta", "downstream"}:
         raise ValueError("frontiercs_write_reward_mode must be delta|downstream")
+    exploration_enabled = explore_beta(args) > 0.0
 
     _ensure_episode_manifest(
         episode_root / "episode_manifest.json",
@@ -282,6 +327,14 @@ async def _generate_episode_locked(input: GenerateFnInput) -> GenerateFnOutput:
             "write_max_new_tokens": write_max_new_tokens,
             "diagnostics_chars_per_candidate": diagnostics_chars,
             "enable_thinking": thinking,
+            "exploration_enabled": exploration_enabled,
+            "exploration_rubric": "four_dimensions_each_0_1_2",
+            "exploration_judge_version": JUDGE_VERSION,
+            "exploration_judge_prompt_hash": JUDGE_PROMPT_HASH,
+            "exploration_normalization": (
+                "within_episode_and_problem_across_all_rounds_and_candidates"
+            ),
+            "terminal_memory_is_training_sample": False,
             "train_write": train_write,
         },
     )
@@ -408,13 +461,18 @@ async def _generate_episode_locked(input: GenerateFnInput) -> GenerateFnOutput:
             }
             added_samples.append(write_sample)
 
-        train_samples.extend(added_samples)
         _update_best(state, records)
 
         memory_out = memory_in
         next_pending: dict[str, Any] | None = None
         write_summary: dict[str, Any]
-        if round_index + 1 < memory_rounds:
+        exploration_result: dict[str, Any] | None = None
+        memory_generation_metadata: dict[str, Any] = {
+            "memory_generated_after_round": False,
+        }
+        terminal_write = round_index + 1 == memory_rounds
+        generate_memory = not terminal_write or exploration_enabled
+        if generate_memory:
             write_prompt = build_write_prompt(
                 previous_memory=memory_in,
                 problems=problems,
@@ -451,7 +509,7 @@ async def _generate_episode_locked(input: GenerateFnInput) -> GenerateFnOutput:
             memory_changed = memory_out.strip() != memory_in.strip()
             memory_empty = not bool(memory_out.strip())
             memory_tokens = _plain_token_count(input.state.tokenizer, memory_out)
-            if train_write:
+            if not terminal_write and train_write:
                 packed_write = _pack_sample(
                     seed=input.sample,
                     prompt_label=(
@@ -494,46 +552,77 @@ async def _generate_episode_locked(input: GenerateFnInput) -> GenerateFnOutput:
                 ),
                 memory_out,
             )
-            write_summary = {
-                "generated": True,
-                "training_sample": train_write,
-                "reward_available_after_round": (
-                    round_index + 1 if train_write else None
-                ),
-                "response_tokens": len(write_ids),
-                "finish_reason": write_finish,
-            }
+
+            if exploration_enabled:
+                exploration_result = await _load_or_judge_memory_delta(
+                    round_root, memory_in, memory_out
+                )
+                if exploration_result is not None:
+                    explore_score = float(exploration_result["explore_score"])
+                    explore_dims = {
+                        name: int(exploration_result[name]) for name in EXPLORE_DIMS
+                    }
+                    for sample in act_samples:
+                        sample.metadata = {
+                            **(sample.metadata or {}),
+                            "explore_score": explore_score,
+                            "explore_dims": explore_dims,
+                            "explore_brief_reason": str(
+                                exploration_result.get("brief_reason") or ""
+                            ),
+                        }
             memory_generation_metadata = {
                 "memory_generated_after_round": True,
-                "memory_terminal_after_round": False,
+                "memory_terminal_after_round": terminal_write,
                 "memory_tokens_after_round": memory_tokens,
                 "memory_changed_after_round": memory_changed,
                 "memory_empty_after_round": memory_empty,
                 "memory_response_tokens_after_round": len(write_ids),
                 "memory_finish_reason_after_round": write_finish,
             }
-            for sample in act_samples:
-                sample.metadata = {
-                    **(sample.metadata or {}),
-                    **memory_generation_metadata,
-                }
-                metadata = sample.metadata or {}
-                _atomic_json(
-                    _candidate_sample_path(
-                        trace,
-                        trace_group_id,
-                        round_index,
-                        str(metadata["problem_id"]),
-                        int(metadata["candidate_index"]),
-                    ),
-                    sample.to_dict(),
-                )
+            write_summary = {
+                "generated": True,
+                "terminal": terminal_write,
+                "training_sample": not terminal_write and train_write,
+                "reward_available_after_round": (
+                    None if terminal_write or not train_write else round_index + 1
+                ),
+                "response_tokens": len(write_ids),
+                "finish_reason": write_finish,
+                "exploration": exploration_result,
+            }
         else:
             _atomic_text(round_root / "memory_out.md", memory_out)
             write_summary = {
                 "generated": False,
-                "reason": "final ACT round has no downstream round for WRITE reward",
+                "reason": "exploration shaping is disabled, so no terminal memory is needed",
             }
+
+        # Memory-generation metrics must remain observable when WRITE training
+        # is disabled and no WRITE Sample objects are returned. Store the one
+        # group-round event on each ACT sample; the metrics logger deduplicates
+        # it by (episode, round).
+        for sample in act_samples:
+            sample.metadata = {
+                **(sample.metadata or {}),
+                **memory_generation_metadata,
+            }
+            metadata = sample.metadata or {}
+            _atomic_json(
+                _candidate_sample_path(
+                    trace,
+                    trace_group_id,
+                    round_index,
+                    str(metadata["problem_id"]),
+                    int(metadata["candidate_index"]),
+                ),
+                sample.to_dict(),
+            )
+
+        train_samples.extend(added_samples)
+        exploration_by_round = dict(state.get("exploration_by_round") or {})
+        if exploration_result is not None:
+            exploration_by_round[str(round_index)] = exploration_result
 
         state = {
             **state,
@@ -541,6 +630,7 @@ async def _generate_episode_locked(input: GenerateFnInput) -> GenerateFnOutput:
             "memory": memory_out,
             "previous_group_score": current_group_score,
             "pending_write_sample": next_pending,
+            "exploration_by_round": exploration_by_round,
             "train_samples": [sample.to_dict() for sample in train_samples],
         }
         round_value = {
@@ -562,6 +652,7 @@ async def _generate_episode_locked(input: GenerateFnInput) -> GenerateFnOutput:
                 for record in records
             ],
             "write": write_summary,
+            "exploration": exploration_result,
             "memory_in": memory_in,
             "memory_out": memory_out,
             "train_samples_added": [sample.to_dict() for sample in added_samples],
@@ -596,6 +687,9 @@ async def _generate_episode_locked(input: GenerateFnInput) -> GenerateFnOutput:
         * candidates_per_problem,
         "writer_training_enabled": train_write,
         "write_sample_count": memory_rounds - 1 if train_write else 0,
+        "terminal_memory_generated": exploration_enabled,
+        "terminal_memory": str(state.get("memory") or ""),
+        "exploration_by_round": dict(state.get("exploration_by_round") or {}),
         "train_samples": [sample.to_dict() for sample in train_samples],
     }
     _atomic_json(commit_path, episode_value)

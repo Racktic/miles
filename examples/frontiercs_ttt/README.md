@@ -181,6 +181,7 @@ The current full experiment settings are:
 | `FRONTIERCS_KL_COEF` | `0.01` | KL-loss coefficient |
 | `FRONTIERCS_KL_TYPE` | `k1` | Miles KL estimator: `k1`, `k2`, `k3`, or `low_var_kl` |
 | `FRONTIERCS_LR` | `1e-6` | Full-parameter actor learning rate |
+| `FRONTIERCS_ACT_EXPLORE_BETA` | `0` | Weight of the normalized memory-delta exploration advantage; positive enables the external judge |
 
 Keep `FRONTIERCS_GROUP_SIZE=3` for the supplied 30-group dataset. The default
 `FRONTIERCS_GROUPS_PER_UPDATE=2` means that one epoch over 30 groups contains 15
@@ -210,6 +211,41 @@ and output directories on every eligible GPU node.
 W&B is optional. Set `WANDB_PROJECT=miles-frontier-cs` and provide the API key
 through the process environment or `FRONTIERCS_WANDB_ENV_FILE`. Never commit the
 key. Set `FRONTIERCS_USE_WANDB=0` to disable logging.
+
+### Memory-delta exploration reward
+
+Set `FRONTIERCS_ACT_EXPLORE_BETA` to a positive value to enable exploration
+shaping. The default is zero, so existing runs do not make external judge
+calls. Configure the judge with:
+
+```bash
+export FRONTIERCS_ACT_EXPLORE_BETA=0.3
+export FRONTIERCS_EXPLORE_JUDGE_API_KEY=...
+export FRONTIERCS_EXPLORE_JUDGE_API_BASE=https://api.openai.com/v1
+export FRONTIERCS_EXPLORE_JUDGE_MODEL=gpt-5-mini
+```
+
+After every ACT round, including the final round, the rollout generates an
+updated memory. The exploration judge receives exactly the previous memory and
+the updated memory; it does not receive problem statements, candidate code,
+task scores, stderr, or other diagnostics. It assigns integer scores in
+`{0, 1, 2}` for new discoveries, error correction, actionable knowledge, and
+high-level abstraction. Their sum divided by eight is the raw exploration
+score in `[0, 1]`.
+
+The active judge is V4. Its memory-pair serialization matches the existing
+codebase-adaptation judge (`Previous memory M_(k-1)` followed by `Updated memory
+M_k`). An untested proposed action may earn credit, but it must be specific and
+testable. The prompt version and full prompt hash are persisted in every episode
+manifest and exploration result.
+
+The score for a group round is attached to every ACT candidate generated in
+that round. Advantages are then standardized separately for each problem in
+one complete episode across its `S*K` candidates. Candidates from different
+problems in the same episode and candidates from different episodes are never
+mixed for exploration normalization. The terminal
+memory exists only to score the final ACT round: it is saved in the trace but
+is not returned as a WRITE training sample and has no WRITE loss.
 
 ## 6. Launch
 
@@ -327,7 +363,9 @@ samples.
 For a solution-only optimization ablation, set `FRONTIERCS_TRAIN_WRITE=0`. The
 pipeline still generates the same nonterminal memories and supplies them to
 later rounds; it simply returns no WRITE samples to Miles. With the same
-`G=3`, `K=1`, `S=4`, each episode then contains 12 trainable samples.
+`G=3`, `K=1`, `S=4`, each episode then contains 12 trainable samples. If
+exploration reward is enabled, the terminal memory is still generated and all
+four solution rounds still receive memory-delta exploration scores.
 
 Problem-solving advantages use `temporal_problem_relative`: the `S*K` rewards
 for the same problem within an episode are standardized by their mean and sample
@@ -347,5 +385,8 @@ sampled and judged again. Do not reuse a run ID with a different group, round,
 or candidate configuration.
 
 The W&B dashboard logs numeric score, execution, failure, response-length,
-memory-length, memory-change, and training-signal metrics. It does not upload
-prompts, code, diagnostics, or memory text.
+memory-length, memory-change, and training-signal metrics. Under
+`exploration_reward/` it logs the four rubric-dimension batch means, raw
+exploration reward mean, same-problem group zero-std fraction, and mean group
+standard deviation. It does not upload prompts, code, diagnostics, or memory
+text.

@@ -33,6 +33,13 @@ EXPECTED_KEYS = {
     "memory/empty_frac",
     *(f"memory_length/after_r{round_index}_mean" for round_index in range(3)),
     "training_signal/write_reward_mean",
+    "exploration_reward/new_discoveries_mean",
+    "exploration_reward/error_correction_mean",
+    "exploration_reward/actionable_knowledge_mean",
+    "exploration_reward/high_level_abstraction_mean",
+    "exploration_reward/reward_mean",
+    "exploration_reward/group_zero_std_frac",
+    "exploration_reward/group_std_mean",
     "training_signal/grpo_zero_std_group_frac",
     "training_signal/act_advantage_abs_mean",
     "training_signal/write_advantage_abs_mean",
@@ -161,6 +168,13 @@ def test_complete_episode_metrics_have_exact_keys_and_values():
     assert metrics["memory_length/after_r1_mean"] == pytest.approx(205.0)
     assert metrics["memory_length/after_r2_mean"] == pytest.approx(305.0)
     assert metrics["training_signal/write_reward_mean"] == pytest.approx(1.0 / 12.0)
+    assert metrics["exploration_reward/new_discoveries_mean"] == 0.0
+    assert metrics["exploration_reward/error_correction_mean"] == 0.0
+    assert metrics["exploration_reward/actionable_knowledge_mean"] == 0.0
+    assert metrics["exploration_reward/high_level_abstraction_mean"] == 0.0
+    assert metrics["exploration_reward/reward_mean"] == 0.0
+    assert metrics["exploration_reward/group_zero_std_frac"] == 0.0
+    assert metrics["exploration_reward/group_std_mean"] == 0.0
     assert metrics["training_signal/grpo_zero_std_group_frac"] == pytest.approx(1.0 / 6.0)
     assert metrics["training_signal/act_advantage_abs_mean"] == pytest.approx(
         0.6229983, abs=1e-5
@@ -195,6 +209,67 @@ def test_logger_emits_one_numeric_row_and_suppresses_default_sample_metrics(monk
     assert EXPECTED_KEYS.issubset(metrics)
     assert all(isinstance(value, (int, float)) for value in metrics.values())
     assert not any("response" in key or "memory_text" in key or "code" in key for key in metrics)
+
+
+def test_exploration_metrics_deduplicate_events_and_use_same_problem_groups():
+    samples = _episode_samples()
+    values = [0.0, 0.25, 0.5, 0.75]
+    dimensions = [
+        {
+            "new_discoveries": 0,
+            "error_correction": 0,
+            "actionable_knowledge": 0,
+            "high_level_abstraction": 0,
+        },
+        {
+            "new_discoveries": 1,
+            "error_correction": 0,
+            "actionable_knowledge": 1,
+            "high_level_abstraction": 0,
+        },
+        {
+            "new_discoveries": 2,
+            "error_correction": 0,
+            "actionable_knowledge": 1,
+            "high_level_abstraction": 1,
+        },
+        {
+            "new_discoveries": 2,
+            "error_correction": 1,
+            "actionable_knowledge": 2,
+            "high_level_abstraction": 1,
+        },
+    ]
+    for sample in samples:
+        metadata = sample.metadata or {}
+        if metadata.get("phase") == "act":
+            round_index = int(metadata["memory_round"])
+            if metadata["group_id"] == "episode-0":
+                metadata["explore_score"] = values[round_index]
+                metadata["explore_dims"] = dimensions[round_index]
+            else:
+                metadata["explore_score"] = 0.5
+                metadata["explore_dims"] = {
+                    "new_discoveries": 1,
+                    "error_correction": 1,
+                    "actionable_knowledge": 1,
+                    "high_level_abstraction": 1,
+                }
+            sample.metadata = metadata
+    args = _args()
+    args.frontiercs_act_explore_beta = 0.3
+
+    metrics = frontiercs_metrics.compute_frontiercs_metrics(args, samples)
+
+    assert metrics["exploration_reward/new_discoveries_mean"] == pytest.approx(1.125)
+    assert metrics["exploration_reward/error_correction_mean"] == pytest.approx(0.625)
+    assert metrics["exploration_reward/actionable_knowledge_mean"] == pytest.approx(1.0)
+    assert metrics["exploration_reward/high_level_abstraction_mean"] == pytest.approx(0.75)
+    assert metrics["exploration_reward/reward_mean"] == pytest.approx(0.4375)
+    assert metrics["exploration_reward/group_zero_std_frac"] == pytest.approx(0.5)
+    assert metrics["exploration_reward/group_std_mean"] == pytest.approx(
+        0.1613743060919757
+    )
 
 
 def test_act_only_metrics_keep_memory_generation_observable():

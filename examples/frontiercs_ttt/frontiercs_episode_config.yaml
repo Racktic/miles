@@ -29,6 +29,11 @@ frontiercs_train_write: true
 # can be enabled once the per-problem baseline artifact is prepared.
 frontiercs_act_advantage_mode: temporal_problem_relative
 frontiercs_task_baseline_artifact: ""
+# When positive, each M_t -> M_(t+1) pair is judged on four 0/1/2 dimensions.
+# The group-round score is attached to every candidate from that round, then
+# normalized for each episode/problem across all S*K candidates. A terminal
+# memory is generated after the final ACT round solely to score that round; it
+# is not a WRITE training sample.
 frontiercs_act_explore_beta: 0.0
 
 # WRITE_s is rewarded only after ACT_{s+1} has been evaluated under the same

@@ -12,7 +12,12 @@ from miles.utils import tracking_utils
 from miles.utils.metric_utils import compute_rollout_step
 from miles.utils.types import Sample
 
-from .frontiercs_advantage import reward_post_process
+from .frontiercs_advantage import (
+    exploration_score_groups,
+    reward_post_process,
+    sample_std,
+)
+from .frontiercs_exploration_judge import EXPLORE_DIMS
 
 
 logger = logging.getLogger(__name__)
@@ -193,6 +198,42 @@ def compute_frontiercs_metrics(args: Any, samples: list[Sample]) -> dict[str, fl
     metrics["training_signal/write_reward_mean"] = _mean(
         float(sample.reward or 0.0) for sample in write
     )
+
+    # The judge emits one result per episode round and rollout metadata copies
+    # it to every problem/candidate in that round. Deduplicate those copies
+    # before computing batch-level rubric and raw-reward means.
+    exploration_events: dict[tuple[str, int], dict[str, Any]] = {}
+    for sample in act:
+        metadata = sample.metadata or {}
+        if metadata.get("explore_score") is None:
+            continue
+        exploration_events.setdefault(
+            (
+                str(metadata.get("group_id") or ""),
+                int(metadata.get("memory_round") or 0),
+            ),
+            metadata,
+        )
+    for dimension in EXPLORE_DIMS:
+        metrics[f"exploration_reward/{dimension}_mean"] = _mean(
+            float((metadata.get("explore_dims") or {}).get(dimension, 0.0))
+            for metadata in exploration_events.values()
+        )
+    metrics["exploration_reward/reward_mean"] = _mean(
+        float(metadata["explore_score"])
+        for metadata in exploration_events.values()
+    )
+
+    # Use exactly the same (episode-specific group_id, problem_id) partition
+    # and S*K completeness check as exploration advantage calculation.
+    complete_explore_groups, _, _ = exploration_score_groups(args, flat)
+    explore_group_stds = [
+        sample_std(values) for _, values in complete_explore_groups.values()
+    ]
+    metrics["exploration_reward/group_zero_std_frac"] = _mean(
+        value <= 1e-12 for value in explore_group_stds
+    )
+    metrics["exploration_reward/group_std_mean"] = _mean(explore_group_stds)
 
     temporal_groups: dict[tuple[str, str], list[float]] = defaultdict(list)
     for sample in act:
