@@ -504,7 +504,9 @@ async def _generate_episode_locked(input: GenerateFnInput) -> GenerateFnOutput:
                 write_finish,
                 write_engine_metadata,
             ) = await _infer(url, write_prompt_ids, write_params)
-            write_reasoning, write_visible = _visible_response(write_text)
+            write_reasoning, write_visible = _visible_response(
+                write_text, thinking=thinking
+            )
             memory_out = clean_memory(write_visible)
             memory_changed = memory_out.strip() != memory_in.strip()
             memory_empty = not bool(memory_out.strip())

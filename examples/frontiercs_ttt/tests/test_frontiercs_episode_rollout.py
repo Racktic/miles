@@ -181,6 +181,70 @@ def test_clean_memory_never_falls_back_to_previous_state():
     assert clean_memory("new memory") == "new memory"
 
 
+def test_unclosed_prompt_prefilled_thinking_is_not_used_as_code_or_memory(
+    tmp_path, monkeypatch
+):
+    asyncio.run(_exercise_unclosed_prompt_prefilled_thinking(tmp_path, monkeypatch))
+
+
+async def _exercise_unclosed_prompt_prefilled_thinking(tmp_path, monkeypatch):
+    judge_calls = []
+
+    async def fake_infer(url, prompt_ids, params):
+        is_write = int(params["max_new_tokens"]) == 50
+        text = "unfinished writer reasoning" if is_write else "unfinished solver reasoning"
+        return text, [10, 11, 12], [-0.1, -0.1, -0.1], "length", {
+            "weight_version": "frozen-v0"
+        }
+
+    async def fake_evaluate(self, problem_id, code):
+        judge_calls.append((problem_id, code))
+        raise AssertionError("unclosed reasoning must never be compiled")
+
+    monkeypatch.setattr(round_rollout, "_infer", fake_infer)
+    monkeypatch.setattr(episode, "_infer", fake_infer)
+    monkeypatch.setattr(
+        episode.FrontierAlgorithmJudge, "evaluate", fake_evaluate
+    )
+
+    result = await episode.generate_episode(_input(tmp_path))
+    act_samples = [
+        sample for sample in result.samples if sample.metadata["phase"] == "act"
+    ]
+    assert judge_calls == []
+    assert all(
+        sample.metadata["evaluation_status"] == "invalid_submission"
+        for sample in act_samples
+    )
+
+    episode_root = (
+        tmp_path
+        / "episode-unit"
+        / "groups"
+        / "color_sat_episode.episode-00000007"
+    )
+    assert (
+        episode_root
+        / "round_000"
+        / "problems"
+        / "174"
+        / "candidate_00"
+        / "reasoning.txt"
+    ).read_text() == "unfinished solver reasoning"
+    assert (episode_root / "round_000" / "memory_out.md").read_text() == ""
+    assert (
+        episode_root / "round_000" / "write_reasoning.txt"
+    ).read_text() == "unfinished writer reasoning"
+    assert "unfinished writer reasoning" not in (
+        episode_root
+        / "round_001"
+        / "problems"
+        / "174"
+        / "candidate_00"
+        / "act_prompt.txt"
+    ).read_text()
+
+
 def test_act_only_mode_generates_and_uses_memory_without_training_write(
     tmp_path, monkeypatch
 ):

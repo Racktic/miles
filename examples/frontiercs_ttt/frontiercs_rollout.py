@@ -149,14 +149,27 @@ def _sample_status(finish: str) -> Sample.Status:
     }.get(finish, Sample.Status.COMPLETED)
 
 
-def _visible_response(text: str) -> tuple[str, str]:
-    """Split Qwen thinking from its visible response without exposing it to WRITE."""
+def _visible_response(text: str, *, thinking: bool) -> tuple[str, str]:
+    """Split Qwen reasoning from its visible response.
+
+    Qwen's chat template places the opening ``<think>`` token in the prompt,
+    while SGLang returns generated tokens only. Therefore an unfinished
+    thinking response normally contains neither tag. When thinking is enabled,
+    the closing tag is the only reliable reasoning-to-answer transition.
+    """
     value = text or ""
     if "</think>" in value:
         reasoning, visible = value.split("</think>", 1)
         return reasoning.replace("<think>", "", 1).strip(), visible.strip()
+    if thinking:
+        # No closing tag means the model never completed the transition from
+        # reasoning to its visible answer. The opening tag may be absent
+        # because it was already part of the prompt.
+        reasoning = value.split("<think>", 1)[1] if "<think>" in value else value
+        return reasoning.strip(), ""
     if "<think>" in value:
-        # A length-capped, unclosed thought has no usable visible answer.
+        # Preserve safe behavior if a model unexpectedly starts an explicit
+        # thought while thinking mode is disabled.
         return value.split("<think>", 1)[1].strip(), ""
     return "", value.strip()
 
@@ -391,7 +404,7 @@ async def _candidate(
     response, response_ids, logprobs, finish, engine_metadata = await _infer(
         url, prompt_ids, params
     )
-    reasoning, visible = _visible_response(response)
+    reasoning, visible = _visible_response(response, thinking=thinking)
     code = extract_cpp(visible)
     if not code.strip():
         feedback = JudgeFeedback(
@@ -732,7 +745,9 @@ async def _generate_locked(input: GenerateFnInput) -> GenerateFnOutput:
         write_text, write_ids, write_logprobs, write_finish, write_engine_metadata = await _infer(
             url, write_prompt_ids, write_params
         )
-        write_reasoning, write_visible = _visible_response(write_text)
+        write_reasoning, write_visible = _visible_response(
+            write_text, thinking=thinking
+        )
         memory_out = clean_memory(write_visible)
         memory_changed = memory_out.strip() != memory_in.strip()
         memory_empty = not bool(memory_out.strip())

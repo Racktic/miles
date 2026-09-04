@@ -22,6 +22,29 @@ class FakeTokenizer:
         return {"input_ids": [1] * max(1, (len(text) + 7) // 8)}
 
 
+def test_visible_response_handles_sglang_thinking_prefix_and_truncation():
+    reasoning, visible = rollout._visible_response(
+        "reasoning emitted after the prompt-side opening tag",
+        thinking=True,
+    )
+    assert reasoning == "reasoning emitted after the prompt-side opening tag"
+    assert visible == ""
+
+    reasoning, visible = rollout._visible_response(
+        "finished reasoning\n</think>\n```cpp\nint main(){}\n```",
+        thinking=True,
+    )
+    assert reasoning == "finished reasoning"
+    assert visible == "```cpp\nint main(){}\n```"
+
+    reasoning, visible = rollout._visible_response(
+        "```cpp\nint main(){}\n```",
+        thinking=False,
+    )
+    assert reasoning == ""
+    assert visible == "```cpp\nint main(){}\n```"
+
+
 def _input(tmp_path, round_index):
     args = SimpleNamespace(
         n_samples_per_prompt=1,
