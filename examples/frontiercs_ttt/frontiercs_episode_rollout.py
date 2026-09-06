@@ -1,12 +1,15 @@
 """Episode-wise Frontier-CS rollout for clean delayed memory credit.
 
 One Miles generation input is one complete problem-group episode.  The model
-weights stay frozen while all ``S`` memory rounds are sampled.  The returned
-training unit contains every ACT sample and the ``S - 1`` WRITE samples whose
-rewards become observable in the following round.  When ACT exploration
-shaping is enabled, a final untrained WRITE is generated after round ``S - 1``
-so every ACT round has a memory delta to judge.  Miles updates the actor only
-after a configurable batch of complete group episodes has returned.
+weights stay frozen while all ``S`` memory rounds are sampled. In the default
+path, the returned training unit contains every ACT sample and the ``S - 1``
+WRITE samples whose rewards become observable in the following round. The
+optional WRITE-GRPO path returns ``K_write`` sibling memories per nonterminal
+round, evaluates all of them with next-round ACT lookahead, and continues only
+the best branch. When ACT exploration shaping is enabled, a final untrained
+WRITE is generated after round ``S - 1`` so every selected ACT round has a
+memory delta to judge. Miles updates the actor only after a configurable batch
+of complete group episodes has returned.
 
 The older ``frontiercs_rollout.generate`` entry point remains available for the
 round-wise/update-between-rounds formulation.  This module is deliberately a
@@ -24,7 +27,7 @@ from miles.utils.types import Sample
 from qwen_eval.frontiercs_ttt.judge import FrontierAlgorithmJudge
 from qwen_eval.frontiercs_ttt.prompts import build_write_prompt, clean_memory
 from qwen_eval.frontiercs_ttt.trace import TraceStore
-from qwen_eval.frontiercs_ttt.types import ModelReply
+from qwen_eval.frontiercs_ttt.types import CandidateRecord, ModelReply
 
 from .frontiercs_advantage import explore_beta
 from .frontiercs_exploration_judge import (
@@ -210,7 +213,7 @@ def _episode_settings(input: GenerateFnInput) -> dict[str, Any]:
         args,
         "FRONTIERCS_CANDIDATES_PER_PROBLEM",
         "frontiercs_candidates_per_problem",
-        1,
+        4,
     )
     memory_rounds = _int_setting(
         args, "FRONTIERCS_MEMORY_ROUNDS", "frontiercs_memory_rounds", 4
@@ -237,6 +240,43 @@ def _episode_settings(input: GenerateFnInput) -> dict[str, Any]:
         "frontiercs_train_write",
         True,
     )
+    write_advantage_mode = str(
+        _env_or_arg(
+            args,
+            "FRONTIERCS_WRITE_ADVANTAGE_MODE",
+            "frontiercs_write_advantage_mode",
+            "grpo",
+        )
+    ).strip().lower()
+    write_candidates = _int_setting(
+        args,
+        "FRONTIERCS_WRITE_CANDIDATES",
+        "frontiercs_write_candidates",
+        4,
+    )
+    if write_advantage_mode not in {
+        "direct",
+        "positive_only",
+        "center_by_round",
+        "grpo",
+    }:
+        raise ValueError(
+            f"unsupported frontiercs_write_advantage_mode: {write_advantage_mode!r}"
+        )
+    if write_advantage_mode == "grpo":
+        if not train_write:
+            raise ValueError(
+                "frontiercs_write_advantage_mode=grpo requires frontiercs_train_write=true"
+            )
+        if write_candidates < 2:
+            raise ValueError(
+                "frontiercs_write_advantage_mode=grpo requires frontiercs_write_candidates>=2"
+            )
+    elif write_candidates != 1:
+        raise ValueError(
+            "frontiercs_write_candidates must be 1 unless "
+            "frontiercs_write_advantage_mode=grpo"
+        )
 
     episode_index = int(input.sample.index or 0)
     trace_group_id = _episode_trace_group_id(group_id, episode_index)
@@ -250,12 +290,779 @@ def _episode_settings(input: GenerateFnInput) -> dict[str, Any]:
         "memory_rounds": memory_rounds,
         "act_code_context": act_code_context,
         "train_write": train_write,
+        "write_advantage_mode": write_advantage_mode,
+        "write_candidates": write_candidates,
     }
+
+
+def _writer_candidate_root(round_root: Path, candidate_index: int) -> Path:
+    return round_root / "write_candidates" / f"candidate_{candidate_index:02d}"
+
+
+async def _generate_writer_candidate(
+    *,
+    input: GenerateFnInput,
+    url: str,
+    prompt: str,
+    prompt_ids: list[int],
+    root: Path,
+    trace_group_id: str,
+    group_id: str,
+    episode_index: int,
+    round_index: int,
+    writer_candidate_index: int,
+    memory_in: str,
+    write_max_new_tokens: int,
+    seq_length: int,
+    thinking: bool,
+    sampling_seed: int,
+) -> tuple[dict[str, Any], Sample]:
+    """Generate and persist one sibling memory from a shared WRITE prompt."""
+    record_path = root / "write_candidate.json"
+    sample_path = root / "train_sample.json"
+    existing = _load_json(record_path)
+    if existing is not None and sample_path.is_file():
+        return existing, Sample.from_dict(_load_json(sample_path) or {})
+
+    params = _sampling_params(
+        input.sampling_params,
+        prompt_tokens=len(prompt_ids),
+        max_new_tokens=write_max_new_tokens,
+        seq_length=seq_length,
+        sampling_seed=sampling_seed,
+    )
+    response, response_ids, logprobs, finish, engine_metadata = await _infer(
+        url, prompt_ids, params
+    )
+    reasoning, visible = _visible_response(response, thinking=thinking)
+    memory_out = clean_memory(visible)
+    memory_tokens = _plain_token_count(input.state.tokenizer, memory_out)
+    memory_changed = memory_out.strip() != memory_in.strip()
+    memory_empty = not bool(memory_out.strip())
+    sample = _pack_sample(
+        seed=input.sample,
+        prompt_label=(
+            f"Frontier-CS WRITE {trace_group_id}/r{round_index}/"
+            f"k_write{writer_candidate_index}"
+        ),
+        prompt_ids=prompt_ids,
+        response_text=response,
+        response_ids=response_ids,
+        response_logprobs=logprobs,
+        finish=finish,
+        metadata={
+            "phase": "write",
+            "training_unit": "complete_group_episode",
+            "group_id": trace_group_id,
+            "group_template_id": group_id,
+            "episode_index": episode_index,
+            "produced_round": round_index,
+            "memory_round": round_index,
+            "writer_candidate_index": writer_candidate_index,
+            "memory_tokens": memory_tokens,
+            "memory_changed": memory_changed,
+            "memory_empty": memory_empty,
+            "write_advantage_mode": "grpo",
+        },
+        sample_index=(
+            episode_index * 1_000_000
+            + round_index * 10_000
+            + 9_000
+            + writer_candidate_index
+        ),
+        engine_metadata=engine_metadata,
+    )
+    record = {
+        "schema_version": 1,
+        "writer_candidate_index": writer_candidate_index,
+        "sampling_seed": sampling_seed,
+        "response": response,
+        "reasoning": reasoning,
+        "memory": memory_out,
+        "memory_tokens": memory_tokens,
+        "memory_changed": memory_changed,
+        "memory_empty": memory_empty,
+        "completion_tokens": len(response_ids),
+        "finish_reason": finish,
+    }
+    _atomic_text(root / "write_prompt.txt", prompt)
+    _atomic_text(root / "write_output.txt", response)
+    _atomic_text(root / "write_reasoning.txt", reasoning)
+    _atomic_text(root / "memory_out.md", memory_out)
+    _atomic_json(record_path, record)
+    _atomic_json(sample_path, sample.to_dict())
+    return record, sample
+
+
+def _branch_act_root(
+    round_root: Path,
+    writer_candidate_index: int,
+    problem_id: str,
+    candidate_index: int,
+) -> Path:
+    return (
+        _writer_candidate_root(round_root, writer_candidate_index)
+        / "downstream"
+        / "problems"
+        / problem_id
+        / f"candidate_{candidate_index:02d}"
+    )
+
+
+def _commit_selected_act_branch(
+    *,
+    trace: TraceStore,
+    trace_group_id: str,
+    round_index: int,
+    writer_candidate_index: int,
+    pairs: list[tuple[CandidateRecord, Sample]],
+) -> None:
+    """Copy only the winning lookahead ACT branch into the canonical trace."""
+    for record, sample in pairs:
+        sample.metadata = {
+            **(sample.metadata or {}),
+            "evaluator_only": False,
+            "selected_from_write_round": round_index - 1,
+            "selected_writer_candidate_index": writer_candidate_index,
+        }
+        trace.save_candidate(trace_group_id, record)
+        _atomic_json(
+            _candidate_sample_path(
+                trace,
+                trace_group_id,
+                round_index,
+                str(record.problem_id),
+                int(record.candidate_index),
+            ),
+            sample.to_dict(),
+        )
+
+
+async def _generate_episode_write_grpo_locked(
+    input: GenerateFnInput,
+    settings: dict[str, Any],
+) -> GenerateFnOutput:
+    """Run a width-one memory trajectory with K-way writer lookahead."""
+    args = input.args
+    group_id = settings["group_id"]
+    trace_group_id = settings["trace_group_id"]
+    episode_index = settings["episode_index"]
+    problem_ids = settings["problem_ids"]
+    candidates_per_problem = settings["candidates_per_problem"]
+    memory_rounds = settings["memory_rounds"]
+    act_code_context = settings["act_code_context"]
+    write_candidates = settings["write_candidates"]
+
+    run_root = _run_root(args)
+    episode_root = _group_root(run_root, trace_group_id)
+    state_path = episode_root / "episode_state.json"
+    commit_path = episode_root / "episode.json"
+    committed = _load_json(commit_path)
+    if committed is not None:
+        return GenerateFnOutput(
+            samples=[
+                Sample.from_dict(value)
+                for value in (committed.get("train_samples") or [])
+            ]
+        )
+
+    act_max_new_tokens = _int_setting(
+        args,
+        "FRONTIERCS_ACT_MAX_NEW_TOKENS",
+        "frontiercs_act_max_new_tokens",
+        25600,
+    )
+    write_max_new_tokens = _int_setting(
+        args,
+        "FRONTIERCS_WRITE_MAX_NEW_TOKENS",
+        "frontiercs_write_max_new_tokens",
+        25600,
+    )
+    diagnostics_chars = _int_setting(
+        args,
+        "FRONTIERCS_DIAGNOSTICS_CHARS",
+        "frontiercs_diagnostics_chars_per_candidate",
+        12000,
+    )
+    max_prompt_chars = _int_setting(
+        args,
+        "FRONTIERCS_WRITER_MAX_PROMPT_CHARS",
+        "frontiercs_writer_max_prompt_chars",
+        120000,
+    )
+    thinking = _bool_setting(
+        args, "FRONTIERCS_ENABLE_THINKING", "frontiercs_enable_thinking", True
+    )
+    exploration_enabled = explore_beta(args) > 0.0
+
+    _ensure_episode_manifest(
+        episode_root / "episode_manifest.json",
+        group_id=group_id,
+        trace_group_id=trace_group_id,
+        episode_index=episode_index,
+        problem_ids=problem_ids,
+        group_size=settings["group_size"],
+        candidates_per_problem=candidates_per_problem,
+        memory_rounds=memory_rounds,
+        act_code_context=act_code_context,
+        semantics={
+            "write_advantage_mode": "grpo",
+            "write_candidates": write_candidates,
+            "write_reward": "next_round_current_group_mean_score",
+            "write_grouping": "within_episode_and_produced_round",
+            "write_selection": "highest_downstream_score_then_lowest_index",
+            "branching": "width_one_selected_memory_path",
+            "unselected_act_samples_are_training_samples": False,
+            "downstream_act_sampling": "paired_seeds_across_write_candidates",
+            "act_max_new_tokens": act_max_new_tokens,
+            "write_max_new_tokens": write_max_new_tokens,
+            "diagnostics_chars_per_candidate": diagnostics_chars,
+            "enable_thinking": thinking,
+            "exploration_enabled": exploration_enabled,
+            "exploration_rubric": "four_dimensions_each_0_1_2",
+            "exploration_judge_version": JUDGE_VERSION,
+            "exploration_judge_prompt_hash": JUDGE_PROMPT_HASH,
+            "exploration_normalization": (
+                "within_episode_and_problem_across_selected_rounds_and_candidates"
+            ),
+            "terminal_memory_is_training_sample": False,
+            "terminal_memory_candidates": 1,
+            "train_write": True,
+        },
+    )
+
+    state = _load_json(state_path) or _initial_episode_state(
+        group_id=group_id,
+        trace_group_id=trace_group_id,
+        episode_index=episode_index,
+        problem_ids=problem_ids,
+    )
+    if state.get("problem_ids") != problem_ids:
+        raise ValueError(
+            f"episode state problem IDs {state.get('problem_ids')} do not match prompt {problem_ids}"
+        )
+    if state.get("pending_write_sample") is not None:
+        raise ValueError("WRITE-GRPO episode state cannot contain a pending WRITE sample")
+
+    trace = TraceStore(run_root)
+    problems = [_problem(problem_id) for problem_id in problem_ids]
+    judge = FrontierAlgorithmJudge(
+        str(
+            _env_or_arg(
+                args,
+                "FRONTIERCS_JUDGE_URL",
+                "frontiercs_judge_url",
+                "http://127.0.0.1:8081",
+            )
+        ),
+        timeout_seconds=float(
+            _env_or_arg(
+                args,
+                "FRONTIERCS_JUDGE_TIMEOUT_SECONDS",
+                "frontiercs_judge_timeout_seconds",
+                1800.0,
+            )
+        ),
+        poll_interval_seconds=float(
+            _env_or_arg(
+                args,
+                "FRONTIERCS_JUDGE_POLL_SECONDS",
+                "frontiercs_judge_poll_seconds",
+                1.0,
+            )
+        ),
+        diagnostics_limit=diagnostics_chars,
+    )
+    seq_length = int(getattr(args, "seq_length", 32768))
+    url = f"http://{args.sglang_router_ip}:{args.sglang_router_port}/generate"
+    train_samples = [
+        Sample.from_dict(value) for value in (state.get("train_samples") or [])
+    ]
+
+    for round_index in range(int(state.get("next_round", 0)), memory_rounds):
+        round_root = trace.round_root(trace_group_id, round_index)
+        memory_in = str(state.get("memory") or "")
+        _atomic_text(round_root / "memory_in.md", memory_in)
+        best_candidates = dict(state.get("best_candidates") or {})
+        seed_base = (
+            int(getattr(args, "rollout_seed", 42))
+            + episode_index * 10_000_000
+            + round_index * 100_000
+        )
+
+        current_work = []
+        for problem_position, problem in enumerate(problems):
+            previous = dict(best_candidates.get(problem.problem_id) or {})
+            previous_code = (
+                str(previous.get("code") or "")
+                if act_code_context == "best"
+                else None
+            )
+            for candidate_index in range(candidates_per_problem):
+                current_work.append(
+                    _candidate(
+                        input=input,
+                        trace=trace,
+                        judge=judge,
+                        url=url,
+                        group_id=trace_group_id,
+                        round_index=round_index,
+                        problem=problem,
+                        candidate_index=candidate_index,
+                        memory=memory_in,
+                        previous_code=previous_code,
+                        act_max_new_tokens=act_max_new_tokens,
+                        seq_length=seq_length,
+                        thinking=thinking,
+                        seed_base=seed_base + problem_position * 1000,
+                    )
+                )
+        current_pairs = list(await asyncio.gather(*current_work))
+        records = [pair[0] for pair in current_pairs]
+        act_samples = [pair[1] for pair in current_pairs]
+        current_group_score = _group_score(records, problem_ids)
+        for sample in act_samples:
+            sample.metadata = {
+                **(sample.metadata or {}),
+                "training_unit": "complete_group_episode",
+                "group_template_id": group_id,
+                "episode_index": episode_index,
+            }
+        _update_best(state, records)
+
+        added_samples: list[Sample] = list(act_samples)
+        memory_out = memory_in
+        exploration_result: dict[str, Any] | None = None
+        memory_generation_metadata: dict[str, Any] = {
+            "memory_generated_after_round": False,
+        }
+        terminal_write = round_index + 1 == memory_rounds
+
+        if not terminal_write:
+            write_prompt = build_write_prompt(
+                previous_memory=memory_in,
+                problems=problems,
+                candidates=records,
+            )
+            if len(write_prompt) > max_prompt_chars:
+                raise ValueError(
+                    f"WRITE prompt has {len(write_prompt)} chars, above limit {max_prompt_chars}; "
+                    "reduce G, K, code length, or diagnostic limits"
+                )
+            _atomic_text(round_root / "write_prompt.txt", write_prompt)
+            write_prompt_ids = _encode_prompt(
+                input.state, write_prompt, thinking=thinking
+            )
+            writer_work = [
+                _generate_writer_candidate(
+                    input=input,
+                    url=url,
+                    prompt=write_prompt,
+                    prompt_ids=write_prompt_ids,
+                    root=_writer_candidate_root(round_root, writer_index),
+                    trace_group_id=trace_group_id,
+                    group_id=group_id,
+                    episode_index=episode_index,
+                    round_index=round_index,
+                    writer_candidate_index=writer_index,
+                    memory_in=memory_in,
+                    write_max_new_tokens=write_max_new_tokens,
+                    seq_length=seq_length,
+                    thinking=thinking,
+                    sampling_seed=seed_base + 90_000 + writer_index,
+                )
+                for writer_index in range(write_candidates)
+            ]
+            writer_pairs = list(await asyncio.gather(*writer_work))
+
+            next_round_index = round_index + 1
+            next_seed_base = (
+                int(getattr(args, "rollout_seed", 42))
+                + episode_index * 10_000_000
+                + next_round_index * 100_000
+            )
+            branch_work = []
+            branch_coordinates: list[tuple[int, int, int]] = []
+            selected_history = dict(state.get("best_candidates") or {})
+            for writer_index, (writer_record, _) in enumerate(writer_pairs):
+                branch_memory = str(writer_record.get("memory") or "")
+                for problem_position, problem in enumerate(problems):
+                    previous = dict(selected_history.get(problem.problem_id) or {})
+                    previous_code = (
+                        str(previous.get("code") or "")
+                        if act_code_context == "best"
+                        else None
+                    )
+                    for candidate_index in range(candidates_per_problem):
+                        branch_coordinates.append(
+                            (writer_index, problem_position, candidate_index)
+                        )
+                        branch_work.append(
+                            _candidate(
+                                input=input,
+                                trace=trace,
+                                judge=judge,
+                                url=url,
+                                group_id=trace_group_id,
+                                round_index=next_round_index,
+                                problem=problem,
+                                candidate_index=candidate_index,
+                                memory=branch_memory,
+                                previous_code=previous_code,
+                                act_max_new_tokens=act_max_new_tokens,
+                                seq_length=seq_length,
+                                thinking=thinking,
+                                seed_base=(
+                                    next_seed_base + problem_position * 1000
+                                ),
+                                artifact_root=_branch_act_root(
+                                    round_root,
+                                    writer_index,
+                                    problem.problem_id,
+                                    candidate_index,
+                                ),
+                            )
+                        )
+            flat_branch_pairs = list(await asyncio.gather(*branch_work))
+            branches: list[list[tuple[CandidateRecord, Sample]]] = [
+                [] for _ in range(write_candidates)
+            ]
+            for coordinate, pair in zip(
+                branch_coordinates, flat_branch_pairs, strict=True
+            ):
+                writer_index, _, _ = coordinate
+                branches[writer_index].append(pair)
+            branch_scores = [
+                _group_score([pair[0] for pair in branch], problem_ids)
+                for branch in branches
+            ]
+            winner_index = max(
+                range(write_candidates), key=lambda index: (branch_scores[index], -index)
+            )
+
+            for writer_index, ((writer_record, writer_sample), branch) in enumerate(
+                zip(writer_pairs, branches, strict=True)
+            ):
+                branch_score = branch_scores[writer_index]
+                selected = writer_index == winner_index
+                writer_sample.reward = branch_score / 100.0
+                writer_sample.metadata = {
+                    **(writer_sample.metadata or {}),
+                    "downstream_round": next_round_index,
+                    "parent_group_score_0_100": current_group_score,
+                    "downstream_group_score_0_100": branch_score,
+                    "selected_for_main_path": selected,
+                    "write_reward_mode": "branch_downstream",
+                }
+                writer_record = {
+                    **writer_record,
+                    "downstream_round": next_round_index,
+                    "parent_group_score_0_100": current_group_score,
+                    "downstream_group_score_0_100": branch_score,
+                    "selected_for_main_path": selected,
+                }
+                writer_root = _writer_candidate_root(round_root, writer_index)
+                _atomic_json(writer_root / "write_candidate.json", writer_record)
+                _atomic_json(writer_root / "train_sample.json", writer_sample.to_dict())
+                _atomic_json(
+                    writer_root / "downstream" / "summary.json",
+                    {
+                        "schema_version": 1,
+                        "round_index": next_round_index,
+                        "paired_sampling_seed_base": next_seed_base,
+                        "group_score_0_100": branch_score,
+                        "selected_for_main_path": selected,
+                        "candidate_scores_0_100": [
+                            {
+                                "problem_id": record.problem_id,
+                                "candidate_index": record.candidate_index,
+                                "score": float(record.feedback.score),
+                            }
+                            for record, _ in branch
+                        ],
+                    },
+                )
+                for branch_record, branch_sample in branch:
+                    branch_sample.metadata = {
+                        **(branch_sample.metadata or {}),
+                        "evaluator_only": not selected,
+                        "conditioning_writer_candidate_index": writer_index,
+                    }
+                    _atomic_json(
+                        _branch_act_root(
+                            round_root,
+                            writer_index,
+                            branch_record.problem_id,
+                            branch_record.candidate_index,
+                        )
+                        / "train_sample.json",
+                        branch_sample.to_dict(),
+                    )
+                added_samples.append(writer_sample)
+
+            winner_record, _ = writer_pairs[winner_index]
+            memory_out = str(winner_record.get("memory") or "")
+            winning_branch = branches[winner_index]
+            _commit_selected_act_branch(
+                trace=trace,
+                trace_group_id=trace_group_id,
+                round_index=next_round_index,
+                writer_candidate_index=winner_index,
+                pairs=winning_branch,
+            )
+            trace.save_write(
+                trace_group_id,
+                round_index,
+                write_prompt,
+                ModelReply(
+                    text=str(winner_record.get("response") or ""),
+                    reasoning=str(winner_record.get("reasoning") or ""),
+                    completion_tokens=int(winner_record.get("completion_tokens") or 0),
+                    finish_reason=str(winner_record.get("finish_reason") or "stop"),
+                ),
+                memory_out,
+            )
+
+            if exploration_enabled:
+                exploration_result = await _load_or_judge_memory_delta(
+                    round_root, memory_in, memory_out
+                )
+                if exploration_result is not None:
+                    explore_score = float(exploration_result["explore_score"])
+                    explore_dims = {
+                        name: int(exploration_result[name]) for name in EXPLORE_DIMS
+                    }
+                    for sample in act_samples:
+                        sample.metadata = {
+                            **(sample.metadata or {}),
+                            "explore_score": explore_score,
+                            "explore_dims": explore_dims,
+                            "explore_brief_reason": str(
+                                exploration_result.get("brief_reason") or ""
+                            ),
+                        }
+
+            winner_sample = writer_pairs[winner_index][1]
+            winner_metadata = winner_sample.metadata or {}
+            memory_generation_metadata = {
+                "memory_generated_after_round": True,
+                "memory_terminal_after_round": False,
+                "memory_tokens_after_round": int(
+                    winner_metadata.get("memory_tokens") or 0
+                ),
+                "memory_changed_after_round": bool(
+                    winner_metadata.get("memory_changed")
+                ),
+                "memory_empty_after_round": bool(winner_metadata.get("memory_empty")),
+                "memory_response_tokens_after_round": winner_sample.response_length,
+                "memory_finish_reason_after_round": str(
+                    winner_record.get("finish_reason") or "stop"
+                ),
+                "selected_writer_candidate_index_after_round": winner_index,
+            }
+            write_summary = {
+                "generated": True,
+                "terminal": False,
+                "training_sample_count": write_candidates,
+                "candidate_count": write_candidates,
+                "selected_candidate_index": winner_index,
+                "selection_score_0_100": branch_scores[winner_index],
+                "candidate_scores_0_100": branch_scores,
+                "reward_available_after_round": next_round_index,
+                "exploration": exploration_result,
+            }
+        elif exploration_enabled:
+            write_prompt = build_write_prompt(
+                previous_memory=memory_in,
+                problems=problems,
+                candidates=records,
+            )
+            if len(write_prompt) > max_prompt_chars:
+                raise ValueError(
+                    f"WRITE prompt has {len(write_prompt)} chars, above limit {max_prompt_chars}; "
+                    "reduce G, K, code length, or diagnostic limits"
+                )
+            write_prompt_ids = _encode_prompt(
+                input.state, write_prompt, thinking=thinking
+            )
+            write_params = _sampling_params(
+                input.sampling_params,
+                prompt_tokens=len(write_prompt_ids),
+                max_new_tokens=write_max_new_tokens,
+                seq_length=seq_length,
+                sampling_seed=seed_base + 99_999,
+            )
+            (
+                write_text,
+                write_ids,
+                _,
+                write_finish,
+                _,
+            ) = await _infer(url, write_prompt_ids, write_params)
+            write_reasoning, write_visible = _visible_response(
+                write_text, thinking=thinking
+            )
+            memory_out = clean_memory(write_visible)
+            memory_tokens = _plain_token_count(input.state.tokenizer, memory_out)
+            memory_changed = memory_out.strip() != memory_in.strip()
+            memory_empty = not bool(memory_out.strip())
+            trace.save_write(
+                trace_group_id,
+                round_index,
+                write_prompt,
+                ModelReply(
+                    text=write_text,
+                    reasoning=write_reasoning,
+                    completion_tokens=len(write_ids),
+                    finish_reason=write_finish,
+                ),
+                memory_out,
+            )
+            exploration_result = await _load_or_judge_memory_delta(
+                round_root, memory_in, memory_out
+            )
+            if exploration_result is not None:
+                explore_score = float(exploration_result["explore_score"])
+                explore_dims = {
+                    name: int(exploration_result[name]) for name in EXPLORE_DIMS
+                }
+                for sample in act_samples:
+                    sample.metadata = {
+                        **(sample.metadata or {}),
+                        "explore_score": explore_score,
+                        "explore_dims": explore_dims,
+                        "explore_brief_reason": str(
+                            exploration_result.get("brief_reason") or ""
+                        ),
+                    }
+            memory_generation_metadata = {
+                "memory_generated_after_round": True,
+                "memory_terminal_after_round": True,
+                "memory_tokens_after_round": memory_tokens,
+                "memory_changed_after_round": memory_changed,
+                "memory_empty_after_round": memory_empty,
+                "memory_response_tokens_after_round": len(write_ids),
+                "memory_finish_reason_after_round": write_finish,
+            }
+            write_summary = {
+                "generated": True,
+                "terminal": True,
+                "training_sample_count": 0,
+                "candidate_count": 1,
+                "exploration": exploration_result,
+            }
+        else:
+            _atomic_text(round_root / "memory_out.md", memory_out)
+            write_summary = {
+                "generated": False,
+                "reason": "exploration shaping is disabled, so no terminal memory is needed",
+            }
+
+        for sample in act_samples:
+            sample.metadata = {
+                **(sample.metadata or {}),
+                **memory_generation_metadata,
+            }
+            metadata = sample.metadata or {}
+            _atomic_json(
+                _candidate_sample_path(
+                    trace,
+                    trace_group_id,
+                    round_index,
+                    str(metadata["problem_id"]),
+                    int(metadata["candidate_index"]),
+                ),
+                sample.to_dict(),
+            )
+
+        train_samples.extend(added_samples)
+        exploration_by_round = dict(state.get("exploration_by_round") or {})
+        if exploration_result is not None:
+            exploration_by_round[str(round_index)] = exploration_result
+        state = {
+            **state,
+            "next_round": round_index + 1,
+            "memory": memory_out,
+            "previous_group_score": current_group_score,
+            "pending_write_sample": None,
+            "exploration_by_round": exploration_by_round,
+            "train_samples": [sample.to_dict() for sample in train_samples],
+        }
+        round_value = {
+            "schema_version": 2,
+            "training_unit": "complete_group_episode",
+            "optimizer_updates_inside_episode": 0,
+            "write_advantage_mode": "grpo",
+            "group_id": group_id,
+            "trace_group_id": trace_group_id,
+            "episode_index": episode_index,
+            "round_index": round_index,
+            "problem_ids": problem_ids,
+            "group_score_0_100": current_group_score,
+            "candidate_scores_0_100": [
+                {
+                    "problem_id": record.problem_id,
+                    "candidate_index": record.candidate_index,
+                    "score": float(record.feedback.score),
+                }
+                for record in records
+            ],
+            "write": write_summary,
+            "exploration": exploration_result,
+            "memory_in": memory_in,
+            "memory_out": memory_out,
+            "train_samples_added": [sample.to_dict() for sample in added_samples],
+            "state_after": state,
+        }
+        _atomic_json(round_root / "round.json", round_value)
+        _atomic_json(state_path, state)
+
+    expected_samples = (
+        memory_rounds * len(problem_ids) * candidates_per_problem
+        + (memory_rounds - 1) * write_candidates
+    )
+    if len(train_samples) != expected_samples:
+        raise RuntimeError(
+            f"complete WRITE-GRPO episode produced {len(train_samples)} samples; "
+            f"expected {expected_samples}"
+        )
+    episode_value = {
+        "schema_version": 2,
+        "training_unit": "complete_group_episode",
+        "optimizer_updates_inside_episode": 0,
+        "write_advantage_mode": "grpo",
+        "write_candidates": write_candidates,
+        "group_id": group_id,
+        "trace_group_id": trace_group_id,
+        "episode_index": episode_index,
+        "problem_ids": problem_ids,
+        "candidates_per_problem": candidates_per_problem,
+        "memory_rounds": memory_rounds,
+        "act_sample_count": memory_rounds
+        * len(problem_ids)
+        * candidates_per_problem,
+        "act_evaluator_only_sample_count": (
+            (memory_rounds - 1)
+            * (write_candidates - 1)
+            * len(problem_ids)
+            * candidates_per_problem
+        ),
+        "writer_training_enabled": True,
+        "write_sample_count": (memory_rounds - 1) * write_candidates,
+        "terminal_memory_generated": exploration_enabled,
+        "terminal_memory": str(state.get("memory") or ""),
+        "exploration_by_round": dict(state.get("exploration_by_round") or {}),
+        "train_samples": [sample.to_dict() for sample in train_samples],
+    }
+    _atomic_json(commit_path, episode_value)
+    return GenerateFnOutput(samples=train_samples)
 
 
 async def _generate_episode_locked(input: GenerateFnInput) -> GenerateFnOutput:
     args = input.args
     settings = _episode_settings(input)
+    if settings["write_advantage_mode"] == "grpo":
+        return await _generate_episode_write_grpo_locked(input, settings)
     group_id = settings["group_id"]
     trace_group_id = settings["trace_group_id"]
     episode_index = settings["episode_index"]

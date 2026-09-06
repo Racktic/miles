@@ -5,7 +5,7 @@ frontiercs_output_root: ""
 frontiercs_run_id: development
 frontiercs_judge_url: http://127.0.0.1:8081
 
-frontiercs_candidates_per_problem: 1
+frontiercs_candidates_per_problem: 4
 frontiercs_memory_rounds: 4
 frontiercs_group_size: 3
 
@@ -24,10 +24,12 @@ frontiercs_enable_thinking: true
 # Set false to keep generating/using memory while excluding all WRITE outputs
 # from the optimizer batch. ACT-only training still traces every memory update.
 frontiercs_train_write: true
+# Number of memories sampled from the identical writer prompt.
+frontiercs_write_candidates: 4
 
-# K=1 does not require GRPO-style sibling normalization.  ``task_baseline``
-# can be enabled once the per-problem baseline artifact is prepared.
-frontiercs_act_advantage_mode: temporal_problem_relative
+# Normalize the K_act identical-prompt candidates for one
+# (episode, problem, round).
+frontiercs_act_advantage_mode: group_relative
 frontiercs_task_baseline_artifact: ""
 # When positive, each M_t -> M_(t+1) pair is judged on four 0/1/2 dimensions.
 # The group-round score is attached to every candidate from that round, then
@@ -39,5 +41,5 @@ frontiercs_act_explore_beta: 0.0
 # WRITE_s is rewarded only after ACT_{s+1} has been evaluated under the same
 # frozen policy.  The scale is explicit because there are fewer WRITE samples.
 frontiercs_write_reward_mode: delta
-frontiercs_write_advantage_mode: direct
+frontiercs_write_advantage_mode: grpo
 frontiercs_write_advantage_scale: 1.0

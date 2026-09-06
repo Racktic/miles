@@ -172,8 +172,11 @@ The current full experiment settings are:
 | `FRONTIERCS_GROUP_SIZE` | `3` | Must match the number of problems in every JSONL group |
 | `FRONTIERCS_GROUPS_PER_UPDATE` | `2` | Complete group episodes collected before one optimizer step |
 | `FRONTIERCS_MEMORY_ROUNDS` | `4` | Number of solve/evaluate rounds in each episode |
-| `FRONTIERCS_CANDIDATES_PER_PROBLEM` | `1` | Independent candidates per problem per round |
+| `FRONTIERCS_CANDIDATES_PER_PROBLEM` | `4` | Independent candidates per problem per round |
+| `FRONTIERCS_ACT_ADVANTAGE_MODE` | `group_relative` | Round-local GRPO over the four identical-prompt candidates |
 | `FRONTIERCS_TRAIN_WRITE` | `1` | Set to `0` to generate/use memory but exclude WRITE responses from optimization |
+| `FRONTIERCS_WRITE_CANDIDATES` | `4` | Sibling memories sampled from each identical WRITE prompt |
+| `FRONTIERCS_WRITE_ADVANTAGE_MODE` | `grpo` | Normalize sibling memories by their next-round group scores |
 | `FRONTIERCS_ACT_MAX_NEW_TOKENS` | `25600` | Maximum problem-solving response length |
 | `FRONTIERCS_WRITE_MAX_NEW_TOKENS` | `25600` | Maximum memory response length |
 | `FRONTIERCS_SEQ_LENGTH` | `32768` | Maximum trainable prompt-plus-response sequence |
@@ -335,9 +338,9 @@ launcher with `FRONTIERCS_START_RAY=0`, set the dashboard endpoint in
 job submission.
 
 The launcher also verifies that the samples in one optimizer update are exactly
-divisible across data-parallel ranks. Each default `G=3`, `K=1`, `S=4` episode
-contains 15 trainable samples, so the check is
-`FRONTIERCS_GROUPS_PER_UPDATE * 15` divisible by
+divisible across data-parallel ranks. Each default `G=3`, `K_act=4`, `S=4`,
+`K_write=4` episode contains 60 trainable samples, so the check is
+`FRONTIERCS_GROUPS_PER_UPDATE * 60` divisible by
 `DP = total_GPUs / (TP * PP * CP)`. It fails before allocating model actors
 rather than letting Miles silently trim complete-episode samples. TP, PP, or
 the number of groups per update can be adjusted to satisfy this invariant.
@@ -347,30 +350,65 @@ the number of groups per update can be adjusted to satisfy this invariant.
 One optimizer unit is a batch of complete group episodes. Model weights remain
 frozen while one group passes through all memory rounds:
 
-1. In each round, generate `G*K` solutions from the current shared memory.
+1. In each round, generate `G*K_act` solutions from the current shared memory.
 2. Submit every extracted C++ solution to the Frontier-CS judge.
-3. Give the previous memory plus candidate code and evaluator feedback to one
-   memory-generation call.
-4. Pass that memory to the next round. There is no fallback to the previous
-   memory when the generated memory is empty or invalid.
-5. After all `S` rounds finish, return the ACT samples and the `S-1` WRITE
-   samples whose downstream rewards are observable, then update the model.
+3. Sample `K_write` memories from one prompt containing the previous memory,
+   candidate code, and evaluator feedback.
+4. Evaluate every memory with next-round ACT, train all sibling WRITE samples,
+   and keep only the highest-scoring memory branch. Non-winning downstream ACT
+   samples are evaluator-only and do not enter ACT loss.
+5. After all `S` rounds finish, return the `G*K_act*S` main-path ACT samples
+   and `K_write*(S-1)` WRITE samples, then update the model.
 
-With `G=3`, `K=1`, `S=4`, one episode contains 12 problem-solving samples and 3
-memory samples. With two episodes per update, an optimizer step receives 30
-samples.
+With the default `G=3`, `K_act=4`, `S=4`, and `K_write=4`, one episode
+contains 48 main-path problem-solving samples and 12 memory samples. With two
+episodes per update, an optimizer step receives 120 samples.
 
-For a solution-only optimization ablation, set `FRONTIERCS_TRAIN_WRITE=0`. The
-pipeline still generates the same nonterminal memories and supplies them to
-later rounds; it simply returns no WRITE samples to Miles. With the same
-`G=3`, `K=1`, `S=4`, each episode then contains 12 trainable samples. If
-exploration reward is enabled, the terminal memory is still generated and all
-four solution rounds still receive memory-delta exploration scores.
+For a solution-only optimization ablation, set `FRONTIERCS_TRAIN_WRITE=0`,
+`FRONTIERCS_WRITE_ADVANTAGE_MODE=direct`, and
+`FRONTIERCS_WRITE_CANDIDATES=1`. The pipeline still generates one nonterminal
+memory and supplies it to later rounds; it simply returns no WRITE samples to
+Miles. With `G=3`, `K_act=4`, and `S=4`, each episode then contains 48
+trainable solution samples. If exploration reward is enabled, the terminal
+memory is still generated and all four solution rounds receive memory-delta
+exploration scores.
 
-Problem-solving advantages use `temporal_problem_relative`: the `S*K` rewards
-for the same problem within an episode are standardized by their mean and sample
-standard deviation. Memory advantages use the downstream group-score delta.
-Memory samples are not normalized together with problem-solving samples.
+Problem-solving advantages default to `group_relative`. Each
+`(episode, problem, round)` forms an independent GRPO group containing exactly
+its four identical-prompt ACT candidates. Memory samples are never normalized
+together with problem-solving samples.
+
+### K-way memory GRPO
+
+The default sets `FRONTIERCS_WRITE_ADVANTAGE_MODE=grpo` and
+`FRONTIERCS_WRITE_CANDIDATES=4`. After each
+nonterminal solution round, the rollout samples `K_write` memories from the
+same prompt. Every memory conditions a paired-seed evaluation of the next
+round's `G*K_act` solutions. Its reward is that branch's bounded current score,
+averaged first across candidates for each problem and then across the `G`
+problems.
+
+The `K_write` rewards from the same episode and writer round are standardized
+with sample standard deviation. All memory candidates enter the memory loss,
+but only the highest-scoring memory and its downstream solution branch continue
+on the main path. Non-winning downstream solutions are evaluator-only and do
+not enter the solution loss. Ties select the lower memory-candidate index for
+deterministic replay.
+
+Exploration reward still judges only the selected main-path memory delta. After
+the final solution round, exactly one terminal memory is generated for its
+exploration reward and is not returned as a memory training sample. Thus:
+
+```text
+trainable samples / episode = G*K_act*S + K_write*(S-1)
+ACT evaluations / episode  = G*K_act*(1 + K_write*(S-1))
+```
+
+For the default `G=3`, `K_act=4`, `S=4`, and `K_write=4`, this is 60
+trainable samples (48 main-path solution and 12 memory samples) and 156
+solution evaluations. The 108 ACT samples behind non-winning memories are
+evaluator-only and do not enter the solution loss. The model is updated only
+after the complete branching episode finishes.
 
 ## 8. Outputs and recovery
 

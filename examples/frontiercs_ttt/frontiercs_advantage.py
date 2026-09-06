@@ -1,9 +1,8 @@
 """Configurable ACT/WRITE advantages for Frontier-CS memory co-training.
 
-The rollout stores task scores in [0, 1].  ACT and WRITE are deliberately
-handled as two streams: ACT may use within-problem group-relative advantages,
-a fixed task baseline, or the raw reward; WRITE defaults to its delayed group
-score delta without requiring sibling WRITE samples.
+The rollout stores task scores in [0, 1]. ACT and WRITE are deliberately
+handled as two streams. The complete-episode defaults use same-prompt
+group-relative ACT advantages and sibling-memory WRITE GRPO.
 """
 
 from __future__ import annotations
@@ -122,7 +121,7 @@ def exploration_score_groups(
             args,
             "FRONTIERCS_CANDIDATES_PER_PROBLEM",
             "frontiercs_candidates_per_problem",
-            1,
+            4,
         )
     )
     expected = memory_rounds * candidates_per_problem
@@ -178,14 +177,17 @@ def reward_post_process(args: Any, samples: list[Any]) -> tuple[list[float], lis
     """Return ``(raw_rewards, token advantages)`` for Miles.
 
     ``FRONTIERCS_ACT_ADVANTAGE_MODE`` / ``frontiercs_act_advantage_mode``:
-      - ``group_relative``: normalize K candidates for the same problem+round.
+      - ``group_relative``: normalize the K candidates sampled from the same
+        problem prompt in one round.
       - ``temporal_problem_relative``: normalize all S*K answers for one
         problem across the complete frozen-policy episode.
       - ``task_baseline``: subtract a fixed per-problem baseline (works for K=1).
       - ``raw``: direct task reward (also works for K=1).
 
-    WRITE uses its delayed downstream reward directly by default.  It is never
-    silently whitened with unrelated ACT samples.
+    WRITE uses its delayed downstream reward directly by default. In ``grpo``
+    mode, the K_write memories sampled from one identical prompt are
+    standardized only against each other using their next-round group scores.
+    WRITE is never silently whitened with ACT samples or unrelated episodes.
     """
 
     raw_rewards = [float(sample.reward or 0.0) for sample in samples]
@@ -195,7 +197,7 @@ def reward_post_process(args: Any, samples: list[Any]) -> tuple[list[float], lis
             args,
             "FRONTIERCS_ACT_ADVANTAGE_MODE",
             "frontiercs_act_advantage_mode",
-            "raw",
+            "group_relative",
         )
     ).strip().lower()
     write_mode = str(
@@ -203,7 +205,7 @@ def reward_post_process(args: Any, samples: list[Any]) -> tuple[list[float], lis
             args,
             "FRONTIERCS_WRITE_ADVANTAGE_MODE",
             "frontiercs_write_advantage_mode",
-            "direct",
+            "grpo",
         )
     ).strip().lower()
     use_std = bool(getattr(args, "grpo_std_normalization", True))
@@ -215,7 +217,7 @@ def reward_post_process(args: Any, samples: list[Any]) -> tuple[list[float], lis
         "raw",
     }:
         raise ValueError(f"unsupported Frontier-CS ACT advantage mode: {act_mode!r}")
-    if write_mode not in {"direct", "positive_only", "center_by_round"}:
+    if write_mode not in {"direct", "positive_only", "center_by_round", "grpo"}:
         raise ValueError(f"unsupported Frontier-CS WRITE advantage mode: {write_mode!r}")
 
     act_indices: list[int] = []
@@ -242,6 +244,17 @@ def reward_post_process(args: Any, samples: list[Any]) -> tuple[list[float], lis
                 + ", ".join(sorted(missing))
             )
     elif act_mode == "group_relative":
+        candidates_per_problem = int(
+            _env_or_arg(
+                args,
+                "FRONTIERCS_CANDIDATES_PER_PROBLEM",
+                "frontiercs_candidates_per_problem",
+                4,
+            )
+        )
+        if candidates_per_problem < 2:
+            raise ValueError("group_relative ACT advantage requires K_act>=2")
+        expected_members = set(range(candidates_per_problem))
         groups: dict[tuple[Any, ...], list[int]] = defaultdict(list)
         for index in act_indices:
             metadata = samples[index].metadata or {}
@@ -252,13 +265,25 @@ def reward_post_process(args: Any, samples: list[Any]) -> tuple[list[float], lis
             )
             groups[key].append(index)
         for key, indices in groups.items():
-            if len(indices) < 2:
+            members = {
+                int((samples[index].metadata or {}).get("candidate_index", -1))
+                for index in indices
+            }
+            if (
+                len(indices) != candidates_per_problem
+                or members != expected_members
+            ):
                 raise ValueError(
-                    "group_relative ACT advantage requires K>=2; "
-                    f"group {key!r} contains one sample"
+                    "group_relative ACT advantage requires exactly "
+                    f"K_act={candidates_per_problem} candidates with indices "
+                    f"{sorted(expected_members)}; group {key!r} contains "
+                    f"{len(indices)} samples with indices {sorted(members)}"
                 )
+            # K_act is generated inside one custom rollout while Miles sees
+            # n_samples_per_prompt=1. Standardize explicitly so Miles cannot
+            # disable the requested GRPO std normalization at the outer level.
             normalized = _standardized(
-                [raw_rewards[index] for index in indices], use_std=use_std
+                [raw_rewards[index] for index in indices], use_std=True
             )
             for index, value in zip(indices, normalized, strict=True):
                 advantages[index] = value
@@ -282,7 +307,7 @@ def reward_post_process(args: Any, samples: list[Any]) -> tuple[list[float], lis
                 args,
                 "FRONTIERCS_CANDIDATES_PER_PROBLEM",
                 "frontiercs_candidates_per_problem",
-                1,
+                4,
             )
         )
         expected = memory_rounds * candidates_per_problem
@@ -305,7 +330,7 @@ def reward_post_process(args: Any, samples: list[Any]) -> tuple[list[float], lis
     elif write_mode == "positive_only":
         for index in write_indices:
             advantages[index] = max(0.0, raw_rewards[index])
-    else:
+    elif write_mode == "center_by_round":
         groups: dict[tuple[Any, ...], list[int]] = defaultdict(list)
         for index in write_indices:
             metadata = samples[index].metadata or {}
@@ -314,6 +339,49 @@ def reward_post_process(args: Any, samples: list[Any]) -> tuple[list[float], lis
         for indices in groups.values():
             normalized = _standardized(
                 [raw_rewards[index] for index in indices], use_std=use_std
+            )
+            for index, value in zip(indices, normalized, strict=True):
+                advantages[index] = value
+    else:
+        write_candidates = int(
+            _env_or_arg(
+                args,
+                "FRONTIERCS_WRITE_CANDIDATES",
+                "frontiercs_write_candidates",
+                4,
+            )
+        )
+        if write_candidates < 2:
+            raise ValueError("WRITE GRPO advantage requires K_write>=2")
+        expected_members = set(range(write_candidates))
+        groups: dict[tuple[str, int], list[int]] = defaultdict(list)
+        for index in write_indices:
+            metadata = samples[index].metadata or {}
+            key = (
+                str(metadata.get("group_id") or ""),
+                int(metadata.get("produced_round", -1)),
+            )
+            if not key[0] or key[1] < 0:
+                raise ValueError(
+                    "WRITE GRPO requires group_id and produced_round metadata"
+                )
+            groups[key].append(index)
+        for key, indices in groups.items():
+            members = {
+                int((samples[index].metadata or {}).get("writer_candidate_index", -1))
+                for index in indices
+            }
+            if len(indices) != write_candidates or members != expected_members:
+                raise ValueError(
+                    "WRITE GRPO requires exactly K_write sibling memories from "
+                    f"one prompt; group {key!r} has {len(indices)} samples and "
+                    f"candidate indices {sorted(members)}"
+                )
+            # K_write is internal to one Miles generation call, while Miles
+            # sees n_samples_per_prompt=1 and disables its global GRPO std flag.
+            # Standardize explicitly here to preserve the requested GRPO rule.
+            normalized = _standardized(
+                [raw_rewards[index] for index in indices], use_std=True
             )
             for index, value in zip(indices, normalized, strict=True):
                 advantages[index] = value

@@ -28,31 +28,145 @@ def test_raw_act_and_direct_delayed_write_do_not_share_a_normalization_group():
 def test_group_relative_is_within_problem_and_round():
     args = SimpleNamespace(
         frontiercs_act_advantage_mode="group_relative",
+        frontiercs_candidates_per_problem=2,
         frontiercs_write_advantage_mode="direct",
         frontiercs_act_explore_beta=0.0,
         grpo_std_normalization=True,
     )
     samples = [
-        _sample(0.2, phase="act", group_id="g", memory_round=0, problem_id="174"),
-        _sample(0.8, phase="act", group_id="g", memory_round=0, problem_id="174"),
+        _sample(
+            0.2,
+            phase="act",
+            group_id="g",
+            memory_round=0,
+            problem_id="174",
+            candidate_index=0,
+        ),
+        _sample(
+            0.8,
+            phase="act",
+            group_id="g",
+            memory_round=0,
+            problem_id="174",
+            candidate_index=1,
+        ),
     ]
     _, advantages = reward_post_process(args, samples)
     assert advantages[0] == pytest.approx(-(2**-0.5), abs=1e-5)
     assert advantages[1] == pytest.approx(2**-0.5, abs=1e-5)
 
 
+def test_default_modes_are_k4_act_and_k4_write_grpo(monkeypatch):
+    for name in (
+        "FRONTIERCS_ACT_ADVANTAGE_MODE",
+        "FRONTIERCS_CANDIDATES_PER_PROBLEM",
+        "FRONTIERCS_WRITE_ADVANTAGE_MODE",
+        "FRONTIERCS_WRITE_CANDIDATES",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    args = SimpleNamespace(
+        frontiercs_act_explore_beta=0.0,
+        grpo_std_normalization=False,
+    )
+    act = [
+        _sample(
+            reward,
+            phase="act",
+            group_id="episode-a",
+            memory_round=0,
+            problem_id="174",
+            candidate_index=index,
+        )
+        for index, reward in enumerate((0.1, 0.2, 0.3, 0.4))
+    ]
+    write = [
+        _sample(
+            reward,
+            phase="write",
+            group_id="episode-a",
+            produced_round=0,
+            writer_candidate_index=index,
+        )
+        for index, reward in enumerate((0.4, 0.3, 0.2, 0.1))
+    ]
+
+    _, advantages = reward_post_process(args, act + write)
+
+    expected = [-1.161886, -0.387295, 0.387295, 1.161886]
+    assert advantages[:4] == pytest.approx(expected, abs=1e-5)
+    assert advantages[4:] == pytest.approx(list(reversed(expected)), abs=1e-5)
+
+
 def test_group_relative_rejects_k1_instead_of_silently_zeroing_act():
     args = SimpleNamespace(
         frontiercs_act_advantage_mode="group_relative",
+        frontiercs_candidates_per_problem=1,
         frontiercs_write_advantage_mode="direct",
         frontiercs_act_explore_beta=0.0,
         grpo_std_normalization=True,
     )
-    with pytest.raises(ValueError, match="requires K>=2"):
+    with pytest.raises(ValueError, match="requires K_act>=2"):
         reward_post_process(
             args,
             [_sample(0.5, phase="act", group_id="g", memory_round=0, problem_id="174")],
         )
+
+
+def test_group_relative_uses_std_even_when_outer_grpo_disables_it():
+    args = SimpleNamespace(
+        frontiercs_act_advantage_mode="group_relative",
+        frontiercs_candidates_per_problem=2,
+        frontiercs_write_advantage_mode="direct",
+        frontiercs_act_explore_beta=0.0,
+        # Miles sees n_samples_per_prompt=1 because K_act is internal to the
+        # custom episode. The internal sibling group must still divide by std.
+        grpo_std_normalization=False,
+    )
+    samples = [
+        _sample(
+            0.2,
+            phase="act",
+            group_id="episode-a",
+            memory_round=2,
+            problem_id="174",
+            candidate_index=0,
+        ),
+        _sample(
+            0.8,
+            phase="act",
+            group_id="episode-a",
+            memory_round=2,
+            problem_id="174",
+            candidate_index=1,
+        ),
+    ]
+
+    _, advantages = reward_post_process(args, samples)
+    expected = 2**-0.5
+    assert advantages == pytest.approx([-expected, expected], abs=1e-5)
+
+
+def test_group_relative_rejects_incomplete_candidate_indices():
+    args = SimpleNamespace(
+        frontiercs_act_advantage_mode="group_relative",
+        frontiercs_candidates_per_problem=2,
+        frontiercs_write_advantage_mode="direct",
+        frontiercs_act_explore_beta=0.0,
+        grpo_std_normalization=True,
+    )
+    samples = [
+        _sample(
+            0.2,
+            phase="act",
+            group_id="episode-a",
+            memory_round=2,
+            problem_id="174",
+            candidate_index=0,
+        )
+    ]
+
+    with pytest.raises(ValueError, match="requires exactly K_act=2"):
+        reward_post_process(args, samples)
 
 
 def test_write_advantage_scale_does_not_change_act_advantage():
@@ -241,3 +355,63 @@ def test_incomplete_exploration_episode_problem_is_not_partially_shaped():
 
     _, advantages = reward_post_process(args, samples)
     assert advantages == pytest.approx([0.0] * 4)
+
+
+def test_write_grpo_standardizes_only_siblings_from_the_same_prompt():
+    args = SimpleNamespace(
+        frontiercs_act_advantage_mode="raw",
+        frontiercs_write_advantage_mode="grpo",
+        frontiercs_write_candidates=2,
+        frontiercs_write_advantage_scale=1.0,
+        frontiercs_act_explore_beta=0.0,
+        # Miles forces this false when n_samples_per_prompt=1. Internal
+        # K_write grouping must still use standard GRPO std normalization.
+        grpo_std_normalization=False,
+    )
+    samples = [
+        _sample(
+            reward,
+            phase="write",
+            group_id=episode,
+            produced_round=round_index,
+            writer_candidate_index=writer_index,
+        )
+        for episode, round_index, rewards in (
+            ("episode-a", 0, (0.2, 0.8)),
+            ("episode-a", 1, (0.7, 0.7)),
+            ("episode-b", 0, (0.9, 0.1)),
+        )
+        for writer_index, reward in enumerate(rewards)
+    ]
+
+    raw, advantages = reward_post_process(args, samples)
+
+    assert raw == pytest.approx([0.2, 0.8, 0.7, 0.7, 0.9, 0.1])
+    expected = 2**-0.5
+    assert advantages == pytest.approx(
+        [-expected, expected, 0.0, 0.0, expected, -expected], abs=1e-5
+    )
+
+
+def test_write_grpo_rejects_incomplete_sibling_group():
+    args = SimpleNamespace(
+        frontiercs_act_advantage_mode="raw",
+        frontiercs_write_advantage_mode="grpo",
+        frontiercs_write_candidates=2,
+        frontiercs_write_advantage_scale=1.0,
+        frontiercs_act_explore_beta=0.0,
+        grpo_std_normalization=False,
+    )
+    with pytest.raises(ValueError, match="exactly K_write sibling memories"):
+        reward_post_process(
+            args,
+            [
+                _sample(
+                    0.8,
+                    phase="write",
+                    group_id="episode-a",
+                    produced_round=0,
+                    writer_candidate_index=0,
+                )
+            ],
+        )

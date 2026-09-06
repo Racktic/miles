@@ -366,6 +366,34 @@ def _candidate_sample_path(
     ) / "train_sample.json"
 
 
+def _load_candidate_artifact(
+    root: Path,
+) -> tuple[CandidateRecord, Sample] | None:
+    record_path = root / "record.json"
+    sample_path = root / "train_sample.json"
+    if not record_path.is_file() or not sample_path.is_file():
+        return None
+    return (
+        CandidateRecord.from_dict(json.loads(record_path.read_text(encoding="utf-8"))),
+        Sample.from_dict(json.loads(sample_path.read_text(encoding="utf-8"))),
+    )
+
+
+def _save_candidate_artifact(
+    root: Path,
+    record: CandidateRecord,
+    sample: Sample,
+) -> None:
+    """Persist an ACT evaluation outside the canonical main-path trace."""
+    _atomic_text(root / "act_prompt.txt", record.act_prompt)
+    _atomic_text(root / "response.txt", record.response)
+    _atomic_text(root / "reasoning.txt", record.reasoning)
+    _atomic_text(root / "solution.cpp", record.code)
+    _atomic_json(root / "feedback.json", record.feedback.writer_payload())
+    _atomic_json(root / "record.json", record.to_dict())
+    _atomic_json(root / "train_sample.json", sample.to_dict())
+
+
 async def _candidate(
     *,
     input: GenerateFnInput,
@@ -382,14 +410,19 @@ async def _candidate(
     seq_length: int,
     thinking: bool,
     seed_base: int,
+    artifact_root: Path | None = None,
 ) -> tuple[CandidateRecord, Sample]:
+    if artifact_root is not None:
+        existing = _load_candidate_artifact(artifact_root)
+        if existing is not None:
+            return existing
     record = trace.load_candidate(
         group_id, round_index, problem.problem_id, candidate_index
     )
     sample_path = _candidate_sample_path(
         trace, group_id, round_index, problem.problem_id, candidate_index
     )
-    if record is not None and sample_path.is_file():
+    if artifact_root is None and record is not None and sample_path.is_file():
         return record, Sample.from_dict(json.loads(sample_path.read_text(encoding="utf-8")))
 
     prompt = build_act_prompt(problem, memory, previous_code=previous_code)
@@ -457,8 +490,11 @@ async def _candidate(
         engine_metadata=engine_metadata,
     )
     packed.reward = float(feedback.score) / 100.0
-    trace.save_candidate(group_id, record)
-    _atomic_json(sample_path, packed.to_dict())
+    if artifact_root is None:
+        trace.save_candidate(group_id, record)
+        _atomic_json(sample_path, packed.to_dict())
+    else:
+        _save_candidate_artifact(artifact_root, record, packed)
     return record, packed
 
 

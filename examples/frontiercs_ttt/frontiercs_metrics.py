@@ -131,32 +131,39 @@ def compute_frontiercs_metrics(args: Any, samples: list[Sample]) -> dict[str, fl
         for metadata in memory_events.values()
         if not bool(metadata.get("memory_terminal_after_round"))
     ]
-    if nonterminal_memory_events:
+    if write:
         metrics["write/length_stop_frac"] = _mean(
-            str(metadata.get("memory_finish_reason_after_round") or "") == "length"
-            for metadata in nonterminal_memory_events
+            sample.status == Sample.Status.TRUNCATED for sample in write
         )
     else:
         metrics["write/length_stop_frac"] = _mean(
-            sample.status == Sample.Status.TRUNCATED for sample in write
+            str(metadata.get("memory_finish_reason_after_round") or "") == "length"
+            for metadata in nonterminal_memory_events
         )
 
     metrics["sample_length/act_mean"] = _mean(
         _response_length(sample) for sample in act
     )
-    if nonterminal_memory_events:
+    if write:
+        metrics["sample_length/write_mean"] = _mean(
+            _response_length(sample) for sample in write
+        )
+    else:
         metrics["sample_length/write_mean"] = _mean(
             float(metadata.get("memory_response_tokens_after_round") or 0.0)
             for metadata in nonterminal_memory_events
         )
-    else:
-        metrics["sample_length/write_mean"] = _mean(
-            _response_length(sample) for sample in write
-        )
     metrics["diagnostics/nonempty_frac"] = _mean(
         bool((sample.metadata or {}).get("has_diagnostics")) for sample in act
     )
-    if nonterminal_memory_events:
+    if write:
+        metrics["memory/changed_frac"] = _mean(
+            bool((sample.metadata or {}).get("memory_changed")) for sample in write
+        )
+        metrics["memory/empty_frac"] = _mean(
+            bool((sample.metadata or {}).get("memory_empty")) for sample in write
+        )
+    else:
         metrics["memory/changed_frac"] = _mean(
             bool(metadata.get("memory_changed_after_round"))
             for metadata in nonterminal_memory_events
@@ -165,27 +172,20 @@ def compute_frontiercs_metrics(args: Any, samples: list[Sample]) -> dict[str, fl
             bool(metadata.get("memory_empty_after_round"))
             for metadata in nonterminal_memory_events
         )
-    else:
-        metrics["memory/changed_frac"] = _mean(
-            bool((sample.metadata or {}).get("memory_changed")) for sample in write
-        )
-        metrics["memory/empty_frac"] = _mean(
-            bool((sample.metadata or {}).get("memory_empty")) for sample in write
-        )
 
     for produced_round in range(memory_rounds - 1):
-        if nonterminal_memory_events:
-            memory_lengths = [
-                float(metadata.get("memory_tokens_after_round") or 0.0)
-                for metadata in nonterminal_memory_events
-                if int(metadata.get("memory_round") or 0) == produced_round
-            ]
-        else:
+        if write:
             memory_lengths = [
                 float((sample.metadata or {}).get("memory_tokens") or 0.0)
                 for sample in write
                 if int((sample.metadata or {}).get("produced_round") or 0)
                 == produced_round
+            ]
+        else:
+            memory_lengths = [
+                float(metadata.get("memory_tokens_after_round") or 0.0)
+                for metadata in nonterminal_memory_events
+                if int(metadata.get("memory_round") or 0) == produced_round
             ]
         if not memory_lengths:
             raise ValueError(
@@ -235,19 +235,27 @@ def compute_frontiercs_metrics(args: Any, samples: list[Sample]) -> dict[str, fl
     )
     metrics["exploration_reward/group_std_mean"] = _mean(explore_group_stds)
 
-    temporal_groups: dict[tuple[str, str], list[float]] = defaultdict(list)
+    act_mode = str(
+        os.environ.get("FRONTIERCS_ACT_ADVANTAGE_MODE")
+        or getattr(args, "frontiercs_act_advantage_mode", "group_relative")
+    ).strip().lower()
+    act_reward_groups: dict[tuple[str, ...], list[float]] = defaultdict(list)
     for sample in act:
         metadata = sample.metadata or {}
-        temporal_groups[
-            (str(metadata.get("group_id") or ""), str(metadata.get("problem_id") or ""))
-        ].append(float(sample.reward or 0.0))
+        key = (
+            str(metadata.get("group_id") or ""),
+            str(metadata.get("problem_id") or ""),
+        )
+        if act_mode == "group_relative":
+            key += (str(int(metadata.get("memory_round", -1))),)
+        act_reward_groups[key].append(float(sample.reward or 0.0))
     zero_std_groups = sum(
         1
-        for rewards in temporal_groups.values()
+        for rewards in act_reward_groups.values()
         if not rewards or max(rewards) - min(rewards) <= 1e-12
     )
     metrics["training_signal/grpo_zero_std_group_frac"] = (
-        zero_std_groups / len(temporal_groups) if temporal_groups else 0.0
+        zero_std_groups / len(act_reward_groups) if act_reward_groups else 0.0
     )
 
     _, advantages = reward_post_process(args, flat)

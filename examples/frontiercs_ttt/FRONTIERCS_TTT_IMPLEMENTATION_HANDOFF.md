@@ -31,6 +31,9 @@ and the operating procedure for new experiments.
 - Qwen3.5-4B and Qwen3.6-27B model entrypoints are present.
 - An explicit `FRONTIERCS_TRAIN_WRITE` switch supports solution-only
   optimization while preserving memory generation and cross-round use.
+- The default K-way WRITE-GRPO rollout samples sibling memories from one
+  prompt, evaluates every memory on the next solution round, trains all memory
+  samples, and continues only the best-scoring solution branch.
 
 ### What is not yet finished or empirically validated
 
@@ -45,6 +48,8 @@ and the operating procedure for new experiments.
   the training code.
 - The external memory judge is a coarse group-round critic. It cannot attribute
   a memory improvement to an individual problem or candidate.
+- The K-way WRITE-GRPO path has unit coverage but has not yet completed a live
+  GPU plus Frontier-CS judge training smoke test.
 
 Do not report exploration-reward training as validated until the calibration
 and live smoke-test checkpoints in Section 18 have passed.
@@ -59,12 +64,8 @@ The system deliberately spans two repositories.
 | Frontier-CS | `/home/qixinx/Frontier-CS` | Problem statements, hidden test data, judge service, prompt construction, C++ extraction, shared trace types |
 
 The intended remote branches are named `frontiercs-ttt` in both repositories.
-The current Miles branch is `frontiercs-ttt`. The last pushed Miles base commit
-before the uncommitted exploration-reward changes was
-`813206def0cf19ec4f489842bed330317060c2de`.
-
-At the time this handoff was written, the exploration-reward implementation and
-this document are working-tree changes. Before handing a run to another cluster:
+The current Miles branch is `frontiercs-ttt`. Before handing a run to another
+cluster:
 
 1. Inspect `git status` in both repositories.
 2. Commit only the intended Frontier-CS files. There are unrelated pre-existing
@@ -96,7 +97,8 @@ perform a train/held-out split.
 |---|---|---:|
 | `N` | Number of group records in the dataset | `30` |
 | `G` | Problems in one group | `3` |
-| `K` | Candidate solutions per problem per round | `1` |
+| `K_act` | Candidate solutions per problem per round | `4` |
+| `K_write` | Sibling memories from one writer prompt | `4` |
 | `S` | Solution/memory rounds in one complete episode | `4` |
 | `B` | Complete group episodes collected per optimizer update | `2` |
 | `M_t` | Shared memory supplied to solution round `t` | `M_0` is empty |
@@ -117,39 +119,88 @@ In each round:
 2. The solution prompt contains the current problem statement and `M_t`.
 3. By default it does **not** contain raw previous diagnostics, previous
    reasoning, or previous code for that problem.
-4. The `G*K` candidates are generated concurrently.
+4. The `G*K_act` candidates are generated concurrently.
 5. Every extracted program is evaluated by the Frontier-CS judge.
-6. After a barrier, one memory response is generated from `M_t`, all current
-   problem statements, all current candidate code, and evaluator feedback.
-7. The memory response becomes `M_{t+1}` exactly as generated after light fence
-   cleanup. There is no fallback to `M_t` when the response is empty or poor.
+6. After a barrier, `K_write` memory responses are generated from one identical
+   prompt containing `M_t`, the problem statements, candidate code, and
+   evaluator feedback.
+7. Every memory is evaluated through next-round ACT, all memory samples enter
+   WRITE loss, and only the highest-scoring memory branch becomes `M_{t+1}`.
+   There is no fallback to `M_t` when a response is empty or poor.
 
-The full default timeline is:
+The full default timeline uses round-local ACT-GRPO and sibling-memory
+WRITE-GRPO:
 
 ```text
 frozen policy theta_i
 
 M0 = empty
-  -> round 0: 3 problems x 1 candidate -> judge -> Q0 -> write M1
-  -> round 1: 3 problems x 1 candidate -> judge -> Q1 -> write M2
-  -> round 2: 3 problems x 1 candidate -> judge -> Q2 -> write M3
-  -> round 3: 3 problems x 1 candidate -> judge -> Q3
+  -> round 0: 3 problems x 4 candidates -> ACT-GRPO
+       -> sample 4 memories -> evaluate 4 next-round branches
+       -> WRITE-GRPO; keep only the highest-scoring memory branch
+  -> round 1: train its 3 problems x 4 candidates
+       -> sample/evaluate 4 memories; keep only the winner
+  -> round 2: train its 3 problems x 4 candidates
+       -> sample/evaluate 4 memories; keep only the winner
+  -> round 3: train its 3 problems x 4 candidates
        -> if exploration beta > 0: write terminal M4 for E3 only
 
-return 12 solution samples + 3 trainable memory samples
+return 48 main-path solution samples + 12 trainable memory samples
   -> calculate rewards and advantages
   -> one full-parameter optimizer update to theta_(i+1)
   -> publish theta_(i+1) to rollout engines
 ```
 
-With exploration disabled, `M4` is not generated. With exploration enabled,
-`M4` is generated and traced but is not a training sample.
+The 108 ACT evaluations behind non-winning memories only score the WRITE
+candidates and do not enter ACT loss. With exploration disabled, `M4` is not
+generated. With exploration enabled, `M4` is generated and traced but is not a
+training sample.
 
-`FRONTIERCS_TRAIN_WRITE=0` changes only which samples enter the optimizer. The
-writer is still called after rounds `0 ... S-2`, its exact output still becomes
-the next round's memory, and its trace/metrics remain available. With positive
-exploration beta, the terminal writer call is also unchanged. No WRITE response
-is packed as a training sample and no delayed WRITE reward is computed.
+For the ACT-only ablation, set `FRONTIERCS_TRAIN_WRITE=0`,
+`FRONTIERCS_WRITE_ADVANTAGE_MODE=direct`, and
+`FRONTIERCS_WRITE_CANDIDATES=1`. The writer is still called after rounds
+`0 ... S-2`, its exact output becomes the next round's memory, and its
+trace/metrics remain available. With positive exploration beta, the terminal
+writer call is also unchanged. No WRITE response is packed as a training
+sample and no delayed WRITE reward is computed.
+
+### 2.4 K-way WRITE-GRPO semantics
+
+The default counterfactual writer objective is configured with:
+
+```text
+FRONTIERCS_TRAIN_WRITE=1
+FRONTIERCS_WRITE_ADVANTAGE_MODE=grpo
+FRONTIERCS_WRITE_CANDIDATES=K_write  # K_write >= 2
+```
+
+After main-path solution round `t`, construct one writer prompt from `M_t` and
+the selected round's code and feedback. Sample `K_write` memories independently
+from that identical prompt. For every memory `M_(t+1)^j`, evaluate the next
+round on the same `G` problems:
+
+```text
+Q_(t+1)^j = mean over problems p (
+               mean over ACT candidates k score[t+1,j,p,k]
+             )
+```
+
+The solution seeds are paired across memory branches: the same problem and ACT
+candidate index receive the same sampling seed in every branch. This reduces
+sampling noise without making responses identical because the memory-conditioned
+prompts differ.
+
+All `K_write` memory responses become training samples, with
+`r_write^j = Q_(t+1)^j / 100`. Only the branch with the highest `Q_(t+1)^j`
+becomes the next main-path state. A tie selects the lower writer-candidate index
+for deterministic replay. The other solution branches exist only to evaluate
+their memories and never enter the solution loss. Consequently the path width
+stays one rather than growing exponentially.
+
+Exploration judging sees only `M_t` and the selected `M_(t+1)`. The original
+same-problem normalization across the selected main path remains unchanged.
+After the final solution round, exactly one terminal memory is generated when
+exploration is enabled; it is not a memory training sample.
 
 ## 3. Dataset and group construction
 
@@ -503,7 +554,7 @@ or the diagnostics limit, then use a new run ID.
 
 ## 8. Samples returned for optimization
 
-For general `G`, `K`, and `S`, one complete episode returns:
+In single-memory direct-credit mode, one complete episode returns:
 
 ```text
 number of solution samples = G * K * S
@@ -517,7 +568,7 @@ When `FRONTIERCS_TRAIN_WRITE=0`:
 total trainable samples    = G*K*S
 ```
 
-At the default `G=3`, `K=1`, `S=4`:
+In the legacy direct-credit configuration `G=3`, `K_act=1`, `S=4`:
 
 ```text
 12 solution samples + 3 memory samples = 15 trainable samples per episode
@@ -527,6 +578,19 @@ If exploration is enabled, there are 16 model generations per episode:
 12 solution generations plus 4 memory generations. The fourth/terminal memory
 generation is not packed as a training sample, so the optimizer still receives
 15 samples.
+
+In WRITE-GRPO mode:
+
+```text
+trainable samples = G*K_act*S + K_write*(S-1)
+solution evaluations = G*K_act*(1 + K_write*(S-1))
+```
+
+For the default `G=3`, `K_act=4`, `S=4`, `K_write=4`, the optimizer
+receives 48 main-path solution samples plus 12 memory samples. The judge
+evaluates 156 solutions: 12 initial candidates plus four 12-candidate
+lookahead branches at each of the three memory transitions. The 108 ACT
+samples behind non-winning memories remain evaluator-only.
 
 Every packed sample contains:
 
@@ -561,6 +625,8 @@ Important fields are:
 - `compile_error`
 - `invalid_submission`
 - `has_diagnostics`
+- on rounds after zero: `selected_from_write_round` and
+  `selected_writer_candidate_index` in WRITE-GRPO mode
 - optional `explore_score`, `explore_dims`, and `explore_brief_reason`
 
 The unique episode trace ID has form
@@ -580,8 +646,10 @@ Important fields are:
 - `memory_tokens`
 - `memory_changed`
 - `memory_empty`
-- once credited: `downstream_round`, `previous_group_score_0_100`,
-  `downstream_group_score_0_100`, and `write_reward_mode`
+- in WRITE-GRPO mode: `writer_candidate_index` and `selected_for_main_path`
+- once credited: `downstream_round`, `downstream_group_score_0_100`, and
+  `write_reward_mode`; direct credit also records `previous_group_score_0_100`,
+  while WRITE-GRPO records `parent_group_score_0_100`
 
 ## 9. Reward assignment
 
@@ -621,6 +689,20 @@ Negative delta rewards are allowed for the writer. The earlier decision to
 avoid negative raw scores applies to the exploration judge's 0/1/2 rubric, not
 to downstream performance regressions.
 
+### 9.3 Counterfactual WRITE-GRPO reward
+
+In WRITE-GRPO mode, every sibling memory receives its own next-round bounded
+current group score:
+
+```text
+r_write[t,j] = Q_(t+1)^j / 100
+```
+
+This is deliberately not cumulative-best score: cumulative best could hide a
+harmful memory behind an older strong solution. Subtracting the parent score
+would not change the normalized advantage because it is shared by all siblings,
+but the persisted raw reward is the directly observed downstream score.
+
 ## 10. Advantage calculation
 
 The implementation is
@@ -628,16 +710,17 @@ The implementation is
 Miles receives raw rewards and a separate scalar advantage per sample; that
 sample-level advantage is applied to its response tokens.
 
-### 10.1 Default temporal solution advantage
+### 10.1 Default round-local solution advantage
 
-Default `FRONTIERCS_ACT_ADVANTAGE_MODE=temporal_problem_relative` groups the
-`S*K` solution samples for the same unique episode and problem:
+Default `FRONTIERCS_ACT_ADVANTAGE_MODE=group_relative` groups the `K_act`
+identical-prompt solution samples for the same unique episode, round, and
+problem:
 
 ```text
-group key = (unique_episode_group_id, problem_id)
+group key = (unique_episode_group_id, round, problem_id)
 ```
 
-For rewards `r_1 ... r_n`, where `n=S*K`:
+For rewards `r_1 ... r_n`, where `n=K_act`:
 
 ```text
 mean = sum(r_i) / n
@@ -645,12 +728,9 @@ sample_std = sqrt(sum((r_i - mean)^2) / (n - 1))
 A_task_i = (r_i - mean) / (sample_std + 1e-6)
 ```
 
-This mode requires exactly `S*K` samples for each key and raises on incomplete
-episodes. It always uses sample-standard-deviation normalization, matching the
-standard GRPO convention selected for this experiment.
-
-For `K=1`, this compares the four rounds of one problem rather than requiring
-parallel sibling samples with an identical prompt.
+This mode requires exactly `K_act=4` candidates with indices `0 ... 3` for
+each key and raises on incomplete groups. It always uses sample-standard-
+deviation normalization, matching standard GRPO.
 
 ### 10.2 Other solution advantage modes
 
@@ -658,25 +738,39 @@ parallel sibling samples with an identical prompt.
 |---|---|---|
 | `raw` | `A_task = r_task` | Works with `K=1`; no baseline |
 | `task_baseline` | subtract fixed per-problem baseline | Requires a JSON mapping for every encountered problem |
-| `group_relative` | normalize candidates with key `(episode, round, problem)` | Requires `K>=2`; raises when a group has one sample |
-| `temporal_problem_relative` | normalize one problem across all rounds/candidates | Current default; requires all `S*K` samples |
+| `group_relative` | normalize exactly the `K_act` candidates with key `(episode, round, problem)` | Current default; requires `K_act>=2` and complete candidate indices |
+| `temporal_problem_relative` | normalize one problem across all rounds/candidates | Requires all `S*K_act` main-path samples |
 
 Baseline artifact values may be stored as `[0,1]` or `[0,100]`; values with
 absolute magnitude above one are divided by 100 when loaded.
 
 ### 10.3 Memory advantage
 
-Default `FRONTIERCS_WRITE_ADVANTAGE_MODE=direct`:
+The legacy `FRONTIERCS_WRITE_ADVANTAGE_MODE=direct` mode uses:
 
 ```text
 A_write[t] = FRONTIERCS_WRITE_ADVANTAGE_SCALE * r_write[t]
 ```
 
-Other modes:
+Modes include:
 
 - `positive_only`: clamp the memory reward below at zero before scaling.
 - `center_by_round`: standardize writer rewards across samples that share
   `(produced_round, downstream_round)` in the current rollout batch.
+- `grpo` (default): group exactly `K_write=4` samples by the unique episode ID and
+  `produced_round`, then standardize their next-round group scores. The required
+  member indices are exactly `0 ... K_write-1`; incomplete groups raise instead
+  of silently mixing unrelated prompts.
+
+WRITE-GRPO always divides by sample standard deviation inside the custom
+advantage function. Miles sees `n_samples_per_prompt=1` because one custom
+generation call owns the whole episode, so its global GRPO flag is not used for
+this internal sibling group:
+
+```text
+A_write[t,j] = (r_write[t,j] - mean_j(r_write[t,j]))
+               / (sample_std_j(r_write[t,j]) + 1e-6)
+```
 
 Memory samples are never accidentally normalized together with solution
 samples.
@@ -851,7 +945,8 @@ periodically updated; empty means frozen.
 ### 12.2 Update size and epoch definition
 
 `rollout_batch_size` is `B`, the number of complete group episodes per update.
-`n_samples_per_prompt` must stay `1` because `K` is generated inside an episode.
+`n_samples_per_prompt` must stay `1` because `K_act` and `K_write` are generated
+inside an episode.
 
 For `N=30`, `B=2`:
 
@@ -862,11 +957,9 @@ updates_per_epoch = ceil(30 / 2) = 15
 `FRONTIERCS_NUM_EPOCHS=1` therefore defaults to 15 optimizer steps.
 `FRONTIERCS_NUM_UPDATES` can override the derived total.
 
-The launcher enables Miles dynamic global batch size. If an update returns
-`B * (G*K*S + S - 1)` samples, Miles sets the global batch size to that sample
-count rounded down to a multiple of data parallelism, creating one optimizer
-step. The launcher pre-validates divisibility so no complete-episode samples
-should be trimmed.
+The launcher enables Miles dynamic global batch size. It derives the exact
+returned sample count before launch, and pre-validates divisibility so no
+complete-episode samples should be trimmed.
 
 Required invariant:
 
@@ -874,13 +967,16 @@ Required invariant:
 total_actor_gpus = actor_nodes * actor_gpus_per_node
 model_parallel   = TP * PP * CP
 DP               = total_actor_gpus / model_parallel
-samples/update   = B * (G*K*S + TRAIN_WRITE*(S - 1))
+samples/update   = B * (
+                     G*K_act*S
+                     + TRAIN_WRITE*K_write*(S - 1)
+                   )
 
 total_actor_gpus must be divisible by model_parallel
 samples/update must be >= DP and divisible by DP
 ```
 
-For the default episode, `samples/episode=15` and `samples/update=30`.
+For the default episode, `samples/episode=60` and `samples/update=120`.
 
 `FRONTIERCS_NOMINAL_GLOBAL_BATCH_SIZE` is only the parser-level nominal value;
 the dynamic value derived from returned samples controls the actual single
@@ -899,7 +995,8 @@ episode Qwen3.5 launcher and custom config.
 | `FRONTIERCS_GROUP_SIZE` | `3` | Must exactly match each row's problem count |
 | `FRONTIERCS_GROUPS_PER_UPDATE` | `2` | Complete episodes per optimizer update |
 | `FRONTIERCS_MEMORY_ROUNDS` | `4` | `S`; complete-episode path requires at least 2 |
-| `FRONTIERCS_CANDIDATES_PER_PROBLEM` | `1` | `K`; must be at least 1 |
+| `FRONTIERCS_CANDIDATES_PER_PROBLEM` | `4` | `K_act`; default ACT-GRPO group size |
+| `FRONTIERCS_WRITE_CANDIDATES` | `4` | `K_write`; default WRITE-GRPO group size; must be `1` outside WRITE-GRPO |
 | `FRONTIERCS_NUM_EPOCHS` | `1` | Multiplies derived steps per epoch |
 | `FRONTIERCS_NUM_UPDATES` | derived | Explicit optimizer-step override |
 | `FRONTIERCS_RUN_ID` | timestamp | Unique trace/checkpoint experiment identity |
@@ -928,10 +1025,10 @@ prompt.
 
 | Variable | Default | Choices / effect |
 |---|---:|---|
-| `FRONTIERCS_ACT_ADVANTAGE_MODE` | `temporal_problem_relative` | `raw`, `task_baseline`, `group_relative`, `temporal_problem_relative` |
+| `FRONTIERCS_ACT_ADVANTAGE_MODE` | `group_relative` | `raw`, `task_baseline`, `group_relative`, `temporal_problem_relative` |
 | `FRONTIERCS_TASK_BASELINE_ARTIFACT` | empty | Per-problem JSON mapping used only by `task_baseline` |
-| `FRONTIERCS_WRITE_REWARD_MODE` | `delta` | `delta` or `downstream` |
-| `FRONTIERCS_WRITE_ADVANTAGE_MODE` | `direct` | `direct`, `positive_only`, `center_by_round` |
+| `FRONTIERCS_WRITE_REWARD_MODE` | `delta` | `delta` or `downstream` for non-GRPO credit; WRITE-GRPO always uses each branch's downstream current score |
+| `FRONTIERCS_WRITE_ADVANTAGE_MODE` | `grpo` | `direct`, `positive_only`, `center_by_round`, `grpo` |
 | `FRONTIERCS_WRITE_ADVANTAGE_SCALE` | `1.0` | Scalar multiplier after writer advantage calculation |
 | `FRONTIERCS_ACT_EXPLORE_BETA` | `0` | Non-negative exploration-advantage coefficient; positive enables API judging and terminal memory |
 
@@ -1137,6 +1234,24 @@ Default episode tree:
         write_output.txt
         write_reasoning.txt
         memory_out.md
+        write_candidates/              # WRITE-GRPO nonterminal rounds only
+          candidate_00/
+            write_prompt.txt
+            write_output.txt
+            write_reasoning.txt
+            memory_out.md
+            write_candidate.json
+            train_sample.json
+            downstream/
+              summary.json
+              problems/<problem-id>/candidate_00/
+                act_prompt.txt
+                response.txt
+                reasoning.txt
+                solution.cpp
+                feedback.json
+                record.json
+                train_sample.json
         exploration_reward.json       # only when beta > 0
         round.json
         problems/
@@ -1161,6 +1276,9 @@ Meanings:
 - `train_sample.json`: exact packed Miles sample.
 - `memory_in.md` / `memory_out.md`: state transition for the round.
 - `write_*`: raw writer prompt, response, and extracted reasoning.
+- `write_candidates/candidate_*/downstream`: every sibling memory and all
+  evaluator-only lookahead solution traces used to rank it. The selected
+  branch is also copied into the canonical next-round `problems/` tree.
 - `exploration_reward.json`: persisted result or persisted unavailable status.
 - `round.json`: atomic round commit including samples added and state after.
 - `episode_state.json`: resumable working state.

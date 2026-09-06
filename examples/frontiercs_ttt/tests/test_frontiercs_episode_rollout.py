@@ -16,7 +16,7 @@ from examples.frontiercs_ttt.frontiercs_exploration_judge import (
 )
 from qwen_eval.frontiercs_ttt.prompts import clean_memory
 from examples.frontiercs_ttt import frontiercs_rollout as round_rollout
-from qwen_eval.frontiercs_ttt.types import JudgeFeedback
+from qwen_eval.frontiercs_ttt.types import CandidateRecord, JudgeFeedback
 
 
 class FakeTokenizer:
@@ -27,14 +27,23 @@ class FakeTokenizer:
         return {"input_ids": [1] * max(1, (len(text) + 7) // 8)}
 
 
-def _input(tmp_path, *, explore_beta=0.0, train_write=True):
+def _input(
+    tmp_path,
+    *,
+    explore_beta=0.0,
+    train_write=True,
+    memory_rounds=4,
+    write_advantage_mode="direct",
+    write_candidates=1,
+    run_id="episode-unit",
+):
     args = SimpleNamespace(
         n_samples_per_prompt=1,
         frontiercs_output_root=str(tmp_path),
-        frontiercs_run_id="episode-unit",
+        frontiercs_run_id=run_id,
         frontiercs_group_size=3,
         frontiercs_candidates_per_problem=1,
-        frontiercs_memory_rounds=4,
+        frontiercs_memory_rounds=memory_rounds,
         frontiercs_act_code_context="none",
         frontiercs_judge_url="http://judge.invalid",
         frontiercs_judge_timeout_seconds=1,
@@ -45,6 +54,8 @@ def _input(tmp_path, *, explore_beta=0.0, train_write=True):
         frontiercs_writer_max_prompt_chars=120000,
         frontiercs_enable_thinking=True,
         frontiercs_write_reward_mode="delta",
+        frontiercs_write_advantage_mode=write_advantage_mode,
+        frontiercs_write_candidates=write_candidates,
         frontiercs_train_write=train_write,
         frontiercs_act_explore_beta=explore_beta,
         seq_length=32768,
@@ -73,6 +84,22 @@ def test_complete_episode_has_clean_delayed_credit_and_exact_replay(
     tmp_path, monkeypatch
 ):
     asyncio.run(_exercise_complete_episode(tmp_path, monkeypatch))
+
+
+def test_complete_episode_defaults_to_k4_act_and_k4_write_grpo(tmp_path):
+    generation_input = _input(tmp_path)
+    for name in (
+        "frontiercs_candidates_per_problem",
+        "frontiercs_write_advantage_mode",
+        "frontiercs_write_candidates",
+    ):
+        delattr(generation_input.args, name)
+
+    settings = episode._episode_settings(generation_input)
+
+    assert settings["candidates_per_problem"] == 4
+    assert settings["write_advantage_mode"] == "grpo"
+    assert settings["write_candidates"] == 4
 
 
 async def _exercise_complete_episode(tmp_path, monkeypatch):
@@ -430,3 +457,206 @@ async def _exercise_terminal_memory(tmp_path, monkeypatch):
     replay = await episode.generate_episode(_input(tmp_path, explore_beta=0.3))
     assert len(replay.samples) == 15
     assert (len(infer_calls), len(memory_pairs)) == calls_before_replay
+
+
+def test_write_grpo_branches_on_memories_and_trains_only_selected_act_path(
+    tmp_path, monkeypatch
+):
+    asyncio.run(_exercise_write_grpo_branching(tmp_path, monkeypatch))
+
+
+def test_write_grpo_uses_only_selected_deltas_and_one_terminal_memory(
+    tmp_path, monkeypatch
+):
+    asyncio.run(
+        _exercise_write_grpo_branching(tmp_path, monkeypatch, exploration=True)
+    )
+
+
+async def _exercise_write_grpo_branching(
+    tmp_path, monkeypatch, *, exploration=False
+):
+    branch_act_calls = []
+    write_seeds = []
+    memory_pairs = []
+
+    async def fake_infer(url, prompt_ids, params):
+        seed = int(params["sampling_seed"])
+        write_seeds.append(seed)
+        writer_index = seed % 100_000 - 90_007
+        round_index = seed // 100_000 - 700
+        quality = "good" if writer_index == 1 else "bad"
+        text = (
+            f"<think>writer-{round_index}-{writer_index}</think>"
+            f"### Cross-Problem Knowledge\n- {quality}-memory-r{round_index}"
+        )
+        return text, [10, 11, 12], [-0.1, -0.1, -0.1], "stop", {
+            "weight_version": "frozen-v0"
+        }
+
+    async def fake_candidate(**kwargs):
+        memory = str(kwargs["memory"] or "")
+        round_index = int(kwargs["round_index"])
+        problem = kwargs["problem"]
+        candidate_index = int(kwargs["candidate_index"])
+        artifact_root = kwargs.get("artifact_root")
+        if artifact_root is None:
+            canonical_root = kwargs["trace"].candidate_root(
+                kwargs["group_id"],
+                round_index,
+                problem.problem_id,
+                candidate_index,
+            )
+            existing = round_rollout._load_candidate_artifact(canonical_root)
+            if existing is not None:
+                return existing
+        else:
+            branch_act_calls.append(
+                (round_index, problem.problem_id, candidate_index, memory)
+            )
+        if round_index == 0:
+            score = 10.0
+        elif "good-memory" in memory:
+            score = 90.0 - round_index * 10.0
+        else:
+            score = 20.0
+        record = CandidateRecord(
+            problem_id=problem.problem_id,
+            round_index=round_index,
+            candidate_index=candidate_index,
+            act_prompt=f"memory={memory}",
+            response="```cpp\nint main(){return 0;}\n```",
+            reasoning="solver",
+            code="int main(){return 0;}",
+            completion_tokens=1,
+            finish_reason="stop",
+            feedback=JudgeFeedback(
+                status="done", score=score, diagnostics=f"score={score}"
+            ),
+        )
+        sample = Sample(
+            group_index=3,
+            index=7,
+            prompt=record.act_prompt,
+            tokens=[1],
+            response=record.response,
+            response_length=1,
+            loss_mask=[1],
+            rollout_log_probs=[-0.1],
+            reward=score / 100.0,
+            status=Sample.Status.COMPLETED,
+            metadata={
+                "phase": "act",
+                "group_id": kwargs["group_id"],
+                "memory_round": round_index,
+                "problem_id": problem.problem_id,
+                "candidate_index": candidate_index,
+                "score_0_100": score,
+                "evaluation_status": "done",
+                "executed": True,
+                "compile_error": False,
+                "invalid_submission": False,
+                "has_diagnostics": True,
+            },
+            weight_versions=["frozen-v0"],
+        )
+        if artifact_root is not None:
+            round_rollout._save_candidate_artifact(artifact_root, record, sample)
+        return record, sample
+
+    async def fake_judge_memory_delta(previous_memory, updated_memory):
+        memory_pairs.append((previous_memory, updated_memory))
+        return {
+            "new_discoveries": 1,
+            "error_correction": 0,
+            "actionable_knowledge": 1,
+            "high_level_abstraction": 0,
+            "explore_score": 0.25,
+            "brief_reason": "new memory",
+        }
+
+    monkeypatch.setattr(episode, "_infer", fake_infer)
+    monkeypatch.setattr(episode, "_candidate", fake_candidate)
+    monkeypatch.setattr(episode, "judge_memory_delta", fake_judge_memory_delta)
+
+    generation_input = _input(
+        tmp_path,
+        explore_beta=0.3 if exploration else 0.0,
+        memory_rounds=3,
+        write_advantage_mode="grpo",
+        write_candidates=2,
+        run_id=("write-grpo-explore-unit" if exploration else "write-grpo-unit"),
+    )
+    result = await episode.generate_episode(generation_input)
+    act_samples = [
+        sample for sample in result.samples if sample.metadata["phase"] == "act"
+    ]
+    write_samples = [
+        sample for sample in result.samples if sample.metadata["phase"] == "write"
+    ]
+    assert len(act_samples) == 9
+    assert len(write_samples) == 4
+    assert len(branch_act_calls) == 12
+    assert len(write_seeds) == 4 + int(exploration)
+    assert [sample.reward for sample in write_samples] == pytest.approx(
+        [0.2, 0.8, 0.2, 0.7]
+    )
+    assert [
+        sample.metadata["selected_for_main_path"] for sample in write_samples
+    ] == [False, True, False, True]
+    assert all(not sample.metadata.get("evaluator_only", False) for sample in act_samples)
+    assert {
+        sample.metadata.get("selected_writer_candidate_index")
+        for sample in act_samples
+        if sample.metadata["memory_round"] > 0
+    } == {1}
+    assert [
+        sample.metadata["score_0_100"]
+        for sample in act_samples
+        if sample.metadata["problem_id"] == "174"
+    ] == [10.0, 80.0, 70.0]
+
+    episode_root = (
+        tmp_path
+        / ("write-grpo-explore-unit" if exploration else "write-grpo-unit")
+        / "groups"
+        / "color_sat_episode.episode-00000007"
+    )
+    assert (
+        episode_root
+        / "round_000"
+        / "write_candidates"
+        / "candidate_00"
+        / "write_prompt.txt"
+    ).read_text() == (
+        episode_root
+        / "round_000"
+        / "write_candidates"
+        / "candidate_01"
+        / "write_prompt.txt"
+    ).read_text()
+    assert "good-memory-r0" in (
+        episode_root / "round_001" / "memory_in.md"
+    ).read_text()
+    round_zero = json.loads((episode_root / "round_000" / "round.json").read_text())
+    assert round_zero["write"]["candidate_scores_0_100"] == [20.0, 80.0]
+    assert round_zero["write"]["selected_candidate_index"] == 1
+    committed = json.loads((episode_root / "episode.json").read_text())
+    assert committed["act_sample_count"] == 9
+    assert committed["act_evaluator_only_sample_count"] == 6
+    assert committed["write_sample_count"] == 4
+    assert committed["terminal_memory_generated"] is exploration
+    if exploration:
+        assert len(memory_pairs) == 3
+        assert all("explore_score" in sample.metadata for sample in act_samples)
+        terminal_round = json.loads(
+            (episode_root / "round_002" / "round.json").read_text()
+        )
+        assert terminal_round["write"]["candidate_count"] == 1
+        assert terminal_round["write"]["training_sample_count"] == 0
+    else:
+        assert memory_pairs == []
+
+    replay = await episode.generate_episode(generation_input)
+    assert len(replay.samples) == 13
+    assert len(write_seeds) == 4 + int(exploration)

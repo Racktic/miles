@@ -1,3 +1,4 @@
+from copy import deepcopy
 from types import SimpleNamespace
 
 import pytest
@@ -181,6 +182,35 @@ def test_complete_episode_metrics_have_exact_keys_and_values():
     )
     assert metrics["training_signal/write_advantage_abs_mean"] == pytest.approx(
         7.0 / 60.0
+    )
+
+
+def test_zero_std_metric_uses_round_local_k_act_groups():
+    args = _args()
+    args.frontiercs_candidates_per_problem = 2
+    args.frontiercs_act_advantage_mode = "group_relative"
+    base_samples = _episode_samples()
+    samples = []
+    changed = False
+    for sample in base_samples:
+        if (sample.metadata or {}).get("phase") == "write":
+            samples.append(sample)
+            continue
+        first = deepcopy(sample)
+        second = deepcopy(sample)
+        first.metadata["candidate_index"] = 0
+        second.metadata["candidate_index"] = 1
+        if not changed:
+            second.reward = float(second.reward or 0.0) + 0.5
+            changed = True
+        samples.extend((first, second))
+
+    metrics = frontiercs_metrics.compute_frontiercs_metrics(args, [samples])
+
+    # Six episode/problem memberships times four rounds gives 24 round-local
+    # K_act groups. Exactly one has nonzero reward variance.
+    assert metrics["training_signal/grpo_zero_std_group_frac"] == pytest.approx(
+        23.0 / 24.0
     )
 
 
