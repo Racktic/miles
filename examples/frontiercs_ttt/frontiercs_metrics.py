@@ -153,7 +153,15 @@ def compute_frontiercs_metrics(args: Any, samples: list[Sample]) -> dict[str, fl
             float(metadata.get("memory_response_tokens_after_round") or 0.0)
             for metadata in nonterminal_memory_events
         )
-    metrics["diagnostics/nonempty_frac"] = _mean(
+    stderr_print_counts = [
+        int((sample.metadata or {}).get("stderr_print_count") or 0)
+        for sample in act
+    ]
+    metrics["diagnostics/stderr_print_frac"] = _mean(
+        count > 0 for count in stderr_print_counts
+    )
+    metrics["diagnostics/stderr_print_count_mean"] = _mean(stderr_print_counts)
+    metrics["diagnostics/observed_nonempty_frac"] = _mean(
         bool((sample.metadata or {}).get("has_diagnostics")) for sample in act
     )
     if write:

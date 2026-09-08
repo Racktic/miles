@@ -65,6 +65,33 @@ from qwen_eval.frontiercs_ttt.types import (
 
 _GROUP_LOCKS: dict[str, asyncio.Lock] = {}
 _SAFE_ID = re.compile(r"^[A-Za-z0-9_.-]+$")
+_CPP_COMMENT_OR_LITERAL = re.compile(
+    r"//[^\n]*|/\*.*?\*/|\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'",
+    re.DOTALL,
+)
+_STDERR_PRINT_PATTERNS = (
+    re.compile(r"\b(?:std\s*::\s*)?(?:cerr|clog)\s*<<"),
+    re.compile(
+        r"\b(?:std\s*::\s*)?(?:fprintf|vfprintf)\s*\(\s*stderr\b"
+    ),
+    re.compile(
+        r"\b(?:std\s*::\s*)?(?:fputs|fputc|fwrite)\s*\([^;]*?\bstderr\b",
+        re.DOTALL,
+    ),
+    re.compile(r"\b(?:std\s*::\s*)?perror\s*\("),
+    re.compile(r"\b(?:write|dprintf|vdprintf)\s*\(\s*(?:2|STDERR_FILENO)\b"),
+)
+
+
+def _count_stderr_print_statements(code: str) -> int:
+    """Count explicit stderr emission sites in extracted C++ source.
+
+    This is a static source metric, not the dynamic number of times a print
+    executes inside loops. Comments and string/character literals are removed
+    first so examples containing ``cerr`` do not create false positives.
+    """
+    source = _CPP_COMMENT_OR_LITERAL.sub(" ", code or "")
+    return sum(len(pattern.findall(source)) for pattern in _STDERR_PRINT_PATTERNS)
 
 
 def _env_or_arg(args: Any, env: str, arg: str, default: Any) -> Any:
@@ -461,6 +488,7 @@ async def _candidate(
     )
     feedback_status = str(feedback.status or "").strip().lower()
     feedback_error = str(feedback.error or "").lower()
+    stderr_print_count = _count_stderr_print_statements(code)
     metadata = {
         "phase": "act",
         "group_id": group_id,
@@ -472,6 +500,8 @@ async def _candidate(
         "executed": feedback_status in {"done", "completed"},
         "compile_error": "compile failed" in feedback_error,
         "invalid_submission": feedback_status == "invalid_submission",
+        "stderr_print_count": stderr_print_count,
+        "has_stderr_print": stderr_print_count > 0,
         "has_diagnostics": bool(str(feedback.diagnostics or "").strip()),
     }
     packed = _pack_sample(

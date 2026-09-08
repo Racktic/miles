@@ -29,7 +29,9 @@ EXPECTED_KEYS = {
     "write/length_stop_frac",
     "sample_length/act_mean",
     "sample_length/write_mean",
-    "diagnostics/nonempty_frac",
+    "diagnostics/stderr_print_frac",
+    "diagnostics/stderr_print_count_mean",
+    "diagnostics/observed_nonempty_frac",
     "memory/changed_frac",
     "memory/empty_frac",
     *(f"memory_length/after_r{round_index}_mean" for round_index in range(3)),
@@ -87,6 +89,9 @@ def _episode_samples():
                         "executed": executed,
                         "compile_error": compile_error,
                         "invalid_submission": invalid_submission,
+                        "stderr_print_count": (
+                            2 if membership_index == 0 and executed else 0
+                        ),
                         "has_diagnostics": membership_index == 0 and executed,
                     },
                 )
@@ -161,7 +166,9 @@ def test_complete_episode_metrics_have_exact_keys_and_values():
     assert metrics["write/length_stop_frac"] == pytest.approx(1.0 / 3.0)
     assert metrics["sample_length/act_mean"] == pytest.approx(11.5)
     assert metrics["sample_length/write_mean"] == pytest.approx(20.0)
-    assert metrics["diagnostics/nonempty_frac"] == pytest.approx(3.0 / 24.0)
+    assert metrics["diagnostics/stderr_print_frac"] == pytest.approx(3.0 / 24.0)
+    assert metrics["diagnostics/stderr_print_count_mean"] == pytest.approx(6.0 / 24.0)
+    assert metrics["diagnostics/observed_nonempty_frac"] == pytest.approx(3.0 / 24.0)
     assert metrics["memory/changed_frac"] == pytest.approx(0.5)
     assert metrics["memory/empty_frac"] == pytest.approx(1.0 / 6.0)
 

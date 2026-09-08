@@ -423,7 +423,10 @@ sampled and judged again. Do not reuse a run ID with a different group, round,
 or candidate configuration.
 
 The W&B dashboard logs numeric score, execution, failure, response-length,
-memory-length, memory-change, and training-signal metrics. Under
+memory-length, memory-change, and training-signal metrics. The `diagnostics/`
+section distinguishes static stderr usage (`stderr_print_frac` and
+`stderr_print_count_mean`) from actually observed non-empty judge diagnostics
+(`observed_nonempty_frac`). Under
 `exploration_reward/` it logs the four rubric-dimension batch means, raw
 exploration reward mean, same-problem group zero-std fraction, and mean group
 standard deviation. It does not upload prompts, code, diagnostics, or memory

@@ -37,6 +37,25 @@ def test_visible_response_handles_sglang_thinking_prefix_and_truncation():
     assert reasoning == "finished reasoning"
     assert visible == "```cpp\nint main(){}\n```"
 
+
+def test_count_stderr_print_statements_covers_common_cpp_forms():
+    code = r'''
+// std::cerr << "ignored";
+const char* example = "fprintf(stderr, ignored)";
+std::cerr << value;
+clog << value;
+fprintf(stderr, "%d", value);
+fputs("message", stderr);
+fwrite(data, 1, size, stderr);
+perror("open");
+write(2, data, size);
+write(STDERR_FILENO, data, size);
+dprintf(2, "%d", value);
+std::cout << value;
+'''
+
+    assert rollout._count_stderr_print_statements(code) == 9
+
     reasoning, visible = rollout._visible_response(
         "```cpp\nint main(){}\n```",
         thinking=False,

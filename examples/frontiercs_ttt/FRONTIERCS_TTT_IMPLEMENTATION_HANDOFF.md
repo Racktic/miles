@@ -1328,7 +1328,12 @@ by construction because it uses the best score seen through that round.
 - `write/length_stop_frac`
 - `sample_length/act_mean`
 - `sample_length/write_mean`
-- `diagnostics/nonempty_frac`
+- `diagnostics/stderr_print_frac`: fraction of trainable ACT programs with at
+  least one statically detected stderr emission site
+- `diagnostics/stderr_print_count_mean`: mean number of static stderr emission
+  sites per trainable ACT program
+- `diagnostics/observed_nonempty_frac`: fraction of trainable ACT programs for
+  which the judge actually returned non-empty diagnostics
 
 `compile_error` is currently detected by matching `compile failed` in the
 feedback error string. `invalid_submission` means no non-empty visible C++ was
